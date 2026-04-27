@@ -1,0 +1,7 @@
+cd C:\projects\laba2
+Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+cmake -S . -B build -G "Visual Studio 18 2026" -A x64
+
+cmake --build build --config Release
+
+build\Release\laba2_app.exe
