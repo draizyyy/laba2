@@ -2,6 +2,8 @@
 #include <stdexcept>
 #include <string>
 
+namespace myLib {
+
 class IndexOutOfRangeException : public std::out_of_range {
 public:
     IndexOutOfRangeException(const std::string& msg = "Неверный индекс") 
@@ -13,3 +15,5 @@ public:
     EmptyCollectionException(const std::string& msg = "Коллекция пуста") 
         : std::runtime_error(msg) {}
 };
+
+}

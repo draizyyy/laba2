@@ -2,8 +2,10 @@
 #include "core/linked_list.hpp"
 #include "exceptions.hpp"
 
-static const int TEST_ARR[] = {10, 20, 30, 40, 50};
-static const int TEST_ARR_LEN = 5;
+using namespace myLib;
+
+static int TEST_ARR[] = {10, 20, 30, 40, 50};
+static int TEST_ARR_LEN = 5;
 
 TEST(LinkedListTest, DefaultConstructor) {
     LinkedList<int> list;

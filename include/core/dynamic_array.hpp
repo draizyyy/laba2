@@ -1,6 +1,8 @@
 #pragma once
 #include "exceptions.hpp"
 
+namespace myLib {
+
 template<typename T>
 class DynamicArray {
 private:
@@ -48,3 +50,5 @@ public:
         size = newSize;
     }
 };
+
+}
