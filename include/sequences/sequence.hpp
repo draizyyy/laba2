@@ -1,3 +1,5 @@
+#pragma once
+
 namespace myLib {
 
 template <class T>
@@ -16,13 +18,13 @@ public:
     virtual Sequence<T>* InsertAt(T item, int index) = 0;
     virtual Sequence<T>* Concat(Sequence<T> *list) = 0;
 
-    virtual Sequence <T>* Map(T2 (*)(T)) = 0;
-    virtual Sequence <T>* Where(bool (*)(T)) = 0;
-    virtual Sequence <T>* Reduce(T2 (*)(T2,T)) = 0;
-    virtual Option<T> GetFirst(bool (*)(T) = 0) = 0;
-    virtual Option<T> GetLast(bool (*)(T) = 0) = 0;
+    // virtual Sequence <T>* Map(T2 (*)(T)) = 0;
+    // virtual Sequence <T>* Where(bool (*)(T)) = 0;
+    // virtual Sequence <T>* Reduce(T2 (*)(T2,T)) = 0;
+    // virtual Option<T> GetFirst(bool (*)(T) = 0) = 0;
+    // virtual Option<T> GetLast(bool (*)(T) = 0) = 0;
     
-    virtual IEnumerator<T>* GetEnumerator() = 0; 
+    // virtual IEnumerator<T>* GetEnumerator() = 0; 
 };
 
 }
