@@ -18,28 +18,34 @@ public:
     DynamicArray(int size) : size(size) {
         data = new T[size]();
     }
-    DynamicArray(const DynamicArray<T>& other) : size(other.size) {
+    DynamicArray(const DynamicArray<T>& dynamicArray) : size(dynamicArray.size) {
         data = new T[size];
         for (int i = 0; i < size; i++) {
-            data[i] = other.data[i];
+            data[i] = dynamicArray.data[i];
         }
     }
     ~DynamicArray() {
         delete[] data;
     }
-    T Get(int index) const {
-        if (index < 0 || index >= size) throw IndexOutOfRangeException();
+    T Get(int index) {
+        if (index < 0 || index >= size) {
+            throw IndexOutOfRangeException();
+        }
         return data[index];
     }
-    int GetSize() const {
+    int GetSize() {
         return size;
     }
     void Set(int index, T value) {
-        if (index < 0 || index >= size) throw IndexOutOfRangeException();
+        if (index < 0 || index >= size) {
+            throw IndexOutOfRangeException();
+        }
         data[index] = value;
     }
     void Resize(int newSize) {
-        if (newSize < 0) throw IndexOutOfRangeException();
+        if (newSize < 0) {
+            throw IndexOutOfRangeException();
+        }
         T* newData = new T[newSize]();
         int copyCount = (newSize < size) ? newSize : size;
         for (int i = 0; i < copyCount; i++) {

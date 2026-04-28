@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 #include "core/linked_list.hpp"
+#include "core/dynamic_array.hpp"
 #include "exceptions.hpp"
 
 using namespace myLib;
 
 static int TEST_ARR[] = {10, 20, 30, 40, 50};
 static int TEST_ARR_LEN = 5;
+
+// LINKED LIST TESTS
 
 TEST(LinkedListTest, DefaultConstructor) {
     LinkedList<int> list;
@@ -155,4 +158,144 @@ TEST(LinkedListTest, Concat_EmptyList) {
     EXPECT_EQ(res2->GetLength(), 2);
     EXPECT_EQ(res2->GetLast(), 2);
     delete res2;
+}
+
+// DYNAMIC ARRAY TESTS
+
+static int DA_TEST_ARR[] = {100, 200, 300, 400, 500};
+static int DA_TEST_LEN = 5;
+
+TEST(DynamicArrayTest, ArrayConstructor) {
+    DynamicArray<int> arr(DA_TEST_ARR, DA_TEST_LEN);
+    EXPECT_EQ(arr.GetSize(), DA_TEST_LEN);
+    EXPECT_EQ(arr.Get(0), 100);
+    EXPECT_EQ(arr.Get(2), 300);
+    EXPECT_EQ(arr.Get(4), 500);
+}
+
+TEST(DynamicArrayTest, SizeConstructor) {
+    DynamicArray<int> arr(10);
+    EXPECT_EQ(arr.GetSize(), 10);
+}
+
+TEST(DynamicArrayTest, CopyConstructor) {
+    DynamicArray<int> original(DA_TEST_ARR, 3);
+    DynamicArray<int> copy(original);
+    
+    EXPECT_EQ(copy.GetSize(), 3);
+    EXPECT_EQ(copy.Get(0), 100);
+    EXPECT_EQ(copy.Get(2), 300);
+    
+    original.Set(0, 999);
+    EXPECT_EQ(original.Get(0), 999);
+    EXPECT_EQ(copy.Get(0), 100);
+}
+
+TEST(DynamicArrayTest, Get_Valid) {
+    DynamicArray<int> arr(DA_TEST_ARR, DA_TEST_LEN);
+    EXPECT_EQ(arr.Get(0), 100);
+    EXPECT_EQ(arr.Get(4), 500);
+    EXPECT_EQ(arr.Get(2), 300);
+}
+
+TEST(DynamicArrayTest, Get_Invalid) {
+    DynamicArray<int> arr(DA_TEST_ARR, 3);
+    EXPECT_THROW(arr.Get(-1), IndexOutOfRangeException);
+    EXPECT_THROW(arr.Get(3), IndexOutOfRangeException);
+    EXPECT_THROW(arr.Get(100), IndexOutOfRangeException);
+}
+
+TEST(DynamicArrayTest, GetSize) {
+    DynamicArray<int> arr1(0);
+    EXPECT_EQ(arr1.GetSize(), 0);
+    
+    DynamicArray<int> arr2(DA_TEST_ARR, DA_TEST_LEN);
+    EXPECT_EQ(arr2.GetSize(), DA_TEST_LEN);
+}
+
+TEST(DynamicArrayTest, Set_Valid) {
+    DynamicArray<int> arr(DA_TEST_ARR, DA_TEST_LEN);
+    arr.Set(0, 1000);
+    arr.Set(2, 3000);
+    arr.Set(4, 5000);
+    
+    EXPECT_EQ(arr.Get(0), 1000);
+    EXPECT_EQ(arr.Get(2), 3000);
+    EXPECT_EQ(arr.Get(4), 5000);
+}
+
+TEST(DynamicArrayTest, Set_Invalid) {
+    DynamicArray<int> arr(DA_TEST_ARR, 3);
+    EXPECT_THROW(arr.Set(-1, 100), IndexOutOfRangeException);
+    EXPECT_THROW(arr.Set(3, 100), IndexOutOfRangeException);
+    EXPECT_THROW(arr.Set(100, 100), IndexOutOfRangeException);
+}
+
+TEST(DynamicArrayTest, Resize_Larger) {
+    DynamicArray<int> arr(DA_TEST_ARR, 3);
+    arr.Resize(5);
+    
+    EXPECT_EQ(arr.GetSize(), 5);
+    EXPECT_EQ(arr.Get(0), 100);
+    EXPECT_EQ(arr.Get(1), 200);
+    EXPECT_EQ(arr.Get(2), 300);
+    EXPECT_EQ(arr.Get(3), 0);
+    EXPECT_EQ(arr.Get(4), 0);
+}
+
+TEST(DynamicArrayTest, Resize_Smaller) {
+    DynamicArray<int> arr(DA_TEST_ARR, 5);
+    arr.Resize(3);
+    
+    EXPECT_EQ(arr.GetSize(), 3);
+    EXPECT_EQ(arr.Get(0), 100);
+    EXPECT_EQ(arr.Get(1), 200);
+    EXPECT_EQ(arr.Get(2), 300);
+    EXPECT_THROW(arr.Get(3), IndexOutOfRangeException);
+    EXPECT_THROW(arr.Get(4), IndexOutOfRangeException);
+}
+
+TEST(DynamicArrayTest, Resize_Same) {
+    DynamicArray<int> arr(DA_TEST_ARR, 3);
+    arr.Resize(3);
+    
+    EXPECT_EQ(arr.GetSize(), 3);
+    EXPECT_EQ(arr.Get(0), 100);
+    EXPECT_EQ(arr.Get(2), 300);
+}
+
+TEST(DynamicArrayTest, Resize_Zero) {
+    DynamicArray<int> arr(DA_TEST_ARR, 3);
+    arr.Resize(0);
+    
+    EXPECT_EQ(arr.GetSize(), 0);
+    EXPECT_THROW(arr.Get(0), IndexOutOfRangeException);
+}
+
+TEST(DynamicArrayTest, Resize_Invalid) {
+    DynamicArray<int> arr(DA_TEST_ARR, 3);
+    EXPECT_THROW(arr.Resize(-1), IndexOutOfRangeException);
+    EXPECT_THROW(arr.Resize(-100), IndexOutOfRangeException);
+}
+
+TEST(DynamicArrayTest, Resize_PreservesData) {
+    int arr[] = {1, 2, 3, 4, 5};
+    DynamicArray<int> da(arr, 5);
+    
+    da.Resize(10);
+    da.Set(5, 60);
+    da.Set(9, 100);
+    
+    EXPECT_EQ(da.Get(0), 1);
+    EXPECT_EQ(da.Get(4), 5);
+    EXPECT_EQ(da.Get(5), 60);
+    EXPECT_EQ(da.Get(9), 100);
+    EXPECT_EQ(da.GetSize(), 10);
+}
+
+TEST(DynamicArrayTest, EmptyArray) {
+    DynamicArray<int> arr(0);
+    EXPECT_EQ(arr.GetSize(), 0);
+    EXPECT_THROW(arr.Get(0), IndexOutOfRangeException);
+    EXPECT_THROW(arr.Set(0, 10), IndexOutOfRangeException);
 }
