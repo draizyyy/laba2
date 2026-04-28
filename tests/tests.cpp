@@ -8,7 +8,7 @@ using namespace myLib;
 static int TEST_ARR[] = {10, 20, 30, 40, 50};
 static int TEST_ARR_LEN = 5;
 
-// LINKED LIST TESTS
+// LinkedList
 
 TEST(LinkedListTest, DefaultConstructor) {
     LinkedList<int> list;
@@ -160,7 +160,7 @@ TEST(LinkedListTest, Concat_EmptyList) {
     delete res2;
 }
 
-// DYNAMIC ARRAY TESTS
+// DynamicArray
 
 static int DA_TEST_ARR[] = {100, 200, 300, 400, 500};
 static int DA_TEST_LEN = 5;
@@ -298,4 +298,321 @@ TEST(DynamicArrayTest, EmptyArray) {
     EXPECT_EQ(arr.GetSize(), 0);
     EXPECT_THROW(arr.Get(0), IndexOutOfRangeException);
     EXPECT_THROW(arr.Set(0, 10), IndexOutOfRangeException);
+}
+
+// SEQUENCE TESTS
+
+static int SEQ_TEST_ARR[] = {1, 2, 3, 4, 5};
+static int SEQ_TEST_LEN = 5;
+
+// ArraySequence базовые
+TEST(ArraySequenceTest, ArrayConstructor) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
+    EXPECT_EQ(seq.Get(0), 1);
+    EXPECT_EQ(seq.Get(4), 5);
+}
+
+TEST(ArraySequenceTest, FromLinkedList) {
+    LinkedList<int> list(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    ArraySequence<int> seq(list);
+    EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
+    for (int i = 0; i < SEQ_TEST_LEN; i++) {
+        EXPECT_EQ(seq.Get(i), SEQ_TEST_ARR[i]);
+    }
+}
+
+TEST(ArraySequenceTest, GetFirstLast) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    EXPECT_EQ(seq.GetFirst(), 1);
+    EXPECT_EQ(seq.GetLast(), 5);
+}
+
+TEST(ArraySequenceTest, GetSubsequence) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    Sequence<int>* sub = seq.GetSubsequence(1, 3);
+    EXPECT_EQ(sub->GetLength(), 3);
+    EXPECT_EQ(sub->Get(0), 2);
+    EXPECT_EQ(sub->Get(2), 4);
+    delete sub;
+}
+
+TEST(ArraySequenceTest, AppendPrependInsertAt) {
+    ArraySequence<int> seq;
+    seq.Append(2)->Append(3);
+    seq.Prepend(1);
+    seq.InsertAt(4, 3);
+    
+    EXPECT_EQ(seq.GetLength(), 4);
+    EXPECT_EQ(seq.Get(0), 1);
+    EXPECT_EQ(seq.Get(1), 2);
+    EXPECT_EQ(seq.Get(2), 3);
+    EXPECT_EQ(seq.Get(3), 4);
+}
+
+TEST(ArraySequenceTest, Concat) {
+    int arr1[] = {1, 2};
+    int arr2[] = {3, 4, 5};
+    ArraySequence<int> seq1(arr1, 2);
+    ArraySequence<int> seq2(arr2, 3);
+    
+    Sequence<int>* concat = seq1.Concat(&seq2);
+    EXPECT_EQ(concat->GetLength(), 5);
+    EXPECT_EQ(concat->Get(4), 5);
+    delete concat;
+}
+
+// ListSequence базовые 
+TEST(ListSequenceTest, FromArray) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
+    EXPECT_EQ(seq.Get(0), 1);
+    EXPECT_EQ(seq.Get(4), 5);
+}
+
+TEST(ListSequenceTest, FromLinkedList) {
+    LinkedList<int> list(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    ListSequence<int> seq(list);
+    EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
+}
+
+TEST(ListSequenceTest, GetFirstLast) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    EXPECT_EQ(seq.GetFirst(), 1);
+    EXPECT_EQ(seq.GetLast(), 5);
+}
+
+TEST(ListSequenceTest, GetSubsequence) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    Sequence<int>* sub = seq.GetSubsequence(1, 3);
+    EXPECT_EQ(sub->GetLength(), 3);
+    EXPECT_EQ(sub->Get(0), 2);
+    EXPECT_EQ(sub->Get(2), 4);
+    delete sub;
+}
+
+TEST(ListSequenceTest, AppendPrependInsertAt) {
+    ListSequence<int> seq;
+    seq.Append(2)->Append(3);
+    seq.Prepend(1);
+    seq.InsertAt(4, 3);
+    
+    EXPECT_EQ(seq.GetLength(), 4);
+    EXPECT_EQ(seq.Get(0), 1);
+    EXPECT_EQ(seq.Get(3), 4);
+}
+
+// POLYMORPHISM (одинаковые для обеих реализаций)
+template<typename T>
+void TestSequenceBasics(Sequence<T>* seq) {
+    EXPECT_EQ(seq->GetLength(), 5);
+    EXPECT_EQ(seq->Get(0), 1);
+    EXPECT_EQ(seq->Get(4), 5);
+    EXPECT_EQ(seq->GetFirst(), 1);
+    EXPECT_EQ(seq->GetLast(), 5);
+}
+
+TEST(PolymorphismTest, ArraySequenceViaPointer) {
+    Sequence<int>* seq = new ArraySequence<int>(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    TestSequenceBasics(seq);
+    delete seq;
+}
+
+TEST(PolymorphismTest, ListSequenceViaPointer) {
+    Sequence<int>* seq = new ListSequence<int>(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    TestSequenceBasics(seq);
+    delete seq;
+}
+
+// MAP
+int Square(int x) { return x * x; }
+std::string IntToString(int x) { return std::to_string(x); }
+
+TEST(MapTest, ArraySequence_Square) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    Sequence<int>* mapped = seq.Map(Square);
+    
+    EXPECT_EQ(mapped->GetLength(), 5);
+    EXPECT_EQ(mapped->Get(0), 1);
+    EXPECT_EQ(mapped->Get(2), 9);
+    EXPECT_EQ(mapped->Get(4), 25);
+    delete mapped;
+}
+
+TEST(MapTest, ListSequence_ChangeType) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    Sequence<std::string>* mapped = seq.Map(IntToString);
+    
+    EXPECT_EQ(mapped->GetLength(), 5);
+    EXPECT_EQ(mapped->Get(0), "1");
+    EXPECT_EQ(mapped->Get(4), "5");
+    delete mapped;
+}
+
+// WHERE
+bool IsEven(int x) { return x % 2 == 0; }
+bool IsGreaterThan3(int x) { return x > 3; }
+
+TEST(WhereTest, ArraySequence_Filter) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    Sequence<int>* filtered = seq.Where(IsEven);
+    
+    EXPECT_EQ(filtered->GetLength(), 2);
+    EXPECT_EQ(filtered->Get(0), 2);
+    EXPECT_EQ(filtered->Get(1), 4);
+    delete filtered;
+}
+
+TEST(WhereTest, ListSequence_Filter) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    Sequence<int>* filtered = seq.Where(IsGreaterThan3);
+    
+    EXPECT_EQ(filtered->GetLength(), 2);
+    EXPECT_EQ(filtered->Get(0), 4);
+    EXPECT_EQ(filtered->Get(1), 5);
+    delete filtered;
+}
+
+// REDUCE
+int Sum(int acc, int x) { return acc + x; }
+int Product(int acc, int x) { return acc * x; }
+
+TEST(ReduceTest, ArraySequence_Sum) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    int result = seq.Reduce(Sum, 0);
+    EXPECT_EQ(result, 15);
+}
+
+TEST(ReduceTest, ListSequence_Product) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    int result = seq.Reduce(Product, 1);
+    EXPECT_EQ(result, 120);
+}
+
+TEST(ReduceTest, ChangeType) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    std::string result = seq.Reduce([](std::string acc, int x) {
+        return acc + std::to_string(x);
+    }, std::string(""));
+    EXPECT_EQ(result, "12345");
+}
+
+// GETFIRST и GETLAST с предикатом (проверка Option<T>)
+TEST(OptionTest, ArraySequence_GetFirst_Predicate) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    
+    Option<int> firstEven = seq.GetFirst(IsEven);
+    EXPECT_TRUE(firstEven.HasValue());
+    EXPECT_EQ(firstEven.GetValue(), 2);
+    
+    Option<int> firstNegative = seq.GetFirst([](int x){ return x < 0; });
+    EXPECT_FALSE(firstNegative.HasValue());
+}
+
+TEST(OptionTest, ListSequence_GetLast_Predicate) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    
+    Option<int> lastGreaterThan3 = seq.GetLast(IsGreaterThan3);
+    EXPECT_TRUE(lastGreaterThan3.HasValue());
+    EXPECT_EQ(lastGreaterThan3.GetValue(), 5);
+    
+    Option<int> lastHundred = seq.GetLast([](int x){ return x == 100; });
+    EXPECT_FALSE(lastHundred.HasValue());
+}
+
+// EXCEPTIONS
+TEST(SequenceExceptionsTest, Get_InvalidIndex) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, 3);
+    EXPECT_THROW(seq.Get(-1), IndexOutOfRangeException);
+    EXPECT_THROW(seq.Get(3), IndexOutOfRangeException);
+}
+
+TEST(SequenceExceptionsTest, GetSubsequence_Invalid) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    EXPECT_THROW(seq.GetSubsequence(-1, 2), IndexOutOfRangeException);
+    EXPECT_THROW(seq.GetSubsequence(0, 10), IndexOutOfRangeException);
+}
+
+TEST(SequenceExceptionsTest, EmptySequence) {
+    ArraySequence<int> seq;
+    EXPECT_THROW(seq.GetFirst(), IndexOutOfRangeException);
+    EXPECT_THROW(seq.GetLast(), IndexOutOfRangeException);
+    EXPECT_THROW(seq.Get(0), IndexOutOfRangeException);
+}
+
+// несколько Map-Reduce в одном тесте
+TEST(ChainingTest, ArraySequence_Many) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    
+    Sequence<int>* result = seq.Where(IsEven)
+                               ->Map(Square)
+                               ->GetSubsequence(0, 0);
+    
+    EXPECT_EQ(result->GetLength(), 1);
+    EXPECT_EQ(result->Get(0), 4); 
+    delete result;
+}
+
+TEST(ChainingTest, ListSequence_Complex) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    
+    int sum = seq.Where(IsGreaterThan2)
+                 ->Map(Square)
+                 ->Reduce(Sum, 0);
+    
+    EXPECT_EQ(sum, 9 + 16 + 25);
+}
+
+TEST(IteratorTest, ArraySequence_Traversal) {
+    ArraySequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    IEnumerator<int>* it = seq.GetEnumerator();
+    
+    int expected[] = {1, 2, 3, 4, 5};
+    for (int i = 0; i < SEQ_TEST_LEN; i++) {
+        EXPECT_TRUE(it->MoveNext());
+        EXPECT_EQ(it->Current(), expected[i]);
+    }
+    EXPECT_FALSE(it->MoveNext());
+    
+    it->Reset();
+    EXPECT_TRUE(it->MoveNext());
+    EXPECT_EQ(it->Current(), 1);
+    
+    delete it;
+}
+
+// ITERATOR
+TEST(IteratorTest, ListSequence_Traversal) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    IEnumerator<int>* it = seq.GetEnumerator();
+    
+    int sum = 0;
+    while (it->MoveNext()) {
+        sum += it->Current();
+    }
+    EXPECT_EQ(sum, 15);
+    EXPECT_FALSE(it->MoveNext());
+    
+    delete it;
+}
+
+TEST(IteratorTest, EmptySequence) {
+    ArraySequence<int> seq;
+    IEnumerator<int>* it = seq.GetEnumerator();
+    EXPECT_FALSE(it->MoveNext());
+    delete it;
+}
+
+TEST(IteratorTest, Reset_MultipleTimes) {
+    ListSequence<int> seq(SEQ_TEST_ARR, 3);
+    IEnumerator<int>* it = seq.GetEnumerator();
+    
+    it->MoveNext(); it->MoveNext();
+    EXPECT_EQ(it->Current(), 2);
+    
+    it->Reset();
+    it->MoveNext();
+    EXPECT_EQ(it->Current(), 1);
+    
+    delete it;
 }
