@@ -318,7 +318,7 @@ TEST(ArraySequenceTest, ArrayConstructor) {
 }
 
 TEST(ArraySequenceTest, FromLinkedList) {
-    LinkedList<int> list(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    DynamicArray<int> list(SEQ_TEST_ARR, SEQ_TEST_LEN);
     ArraySequence<int> seq(list);
     EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
     for (int i = 0; i < SEQ_TEST_LEN; i++) {
@@ -366,67 +366,67 @@ TEST(ArraySequenceTest, Concat) {
     delete concat;
 }
 
-// // ListSequence базовые 
-// TEST(ListSequenceTest, FromArray) {
-//     ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
-//     EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
-//     EXPECT_EQ(seq.Get(0), 1);
-//     EXPECT_EQ(seq.Get(4), 5);
-// }
+// ListSequence базовые 
+TEST(ListSequenceTest, FromArray) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
+    EXPECT_EQ(seq.Get(0), 1);
+    EXPECT_EQ(seq.Get(4), 5);
+}
 
-// TEST(ListSequenceTest, FromLinkedList) {
-//     LinkedList<int> list(SEQ_TEST_ARR, SEQ_TEST_LEN);
-//     ListSequence<int> seq(list);
-//     EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
-// }
+TEST(ListSequenceTest, FromLinkedList) {
+    LinkedList<int> list(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    ListSequence<int> seq(list);
+    EXPECT_EQ(seq.GetLength(), SEQ_TEST_LEN);
+}
 
-// TEST(ListSequenceTest, GetFirstLast) {
-//     ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
-//     EXPECT_EQ(seq.GetFirst(), 1);
-//     EXPECT_EQ(seq.GetLast(), 5);
-// }
+TEST(ListSequenceTest, GetFirstLast) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    EXPECT_EQ(seq.GetFirst(), 1);
+    EXPECT_EQ(seq.GetLast(), 5);
+}
 
-// TEST(ListSequenceTest, GetSubsequence) {
-//     ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
-//     Sequence<int>* sub = seq.GetSubsequence(1, 3);
-//     EXPECT_EQ(sub->GetLength(), 3);
-//     EXPECT_EQ(sub->Get(0), 2);
-//     EXPECT_EQ(sub->Get(2), 4);
-//     delete sub;
-// }
+TEST(ListSequenceTest, GetSubsequence) {
+    ListSequence<int> seq(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    Sequence<int>* sub = seq.GetSubsequence(1, 3);
+    EXPECT_EQ(sub->GetLength(), 3);
+    EXPECT_EQ(sub->Get(0), 2);
+    EXPECT_EQ(sub->Get(2), 4);
+    delete sub;
+}
 
-// TEST(ListSequenceTest, AppendPrependInsertAt) {
-//     ListSequence<int> seq;
-//     seq.Append(2)->Append(3);
-//     seq.Prepend(1);
-//     seq.InsertAt(4, 3);
+TEST(ListSequenceTest, AppendPrependInsertAt) {
+    ListSequence<int> seq;
+    seq.Append(2)->Append(3);
+    seq.Prepend(1);
+    seq.InsertAt(4, 3);
     
-//     EXPECT_EQ(seq.GetLength(), 4);
-//     EXPECT_EQ(seq.Get(0), 1);
-//     EXPECT_EQ(seq.Get(3), 4);
-// }
+    EXPECT_EQ(seq.GetLength(), 4);
+    EXPECT_EQ(seq.Get(0), 1);
+    EXPECT_EQ(seq.Get(3), 4);
+}
 
-// // POLYMORPHISM (одинаковые для обеих реализаций)
-// template<typename T>
-// void TestSequenceBasics(Sequence<T>* seq) {
-//     EXPECT_EQ(seq->GetLength(), 5);
-//     EXPECT_EQ(seq->Get(0), 1);
-//     EXPECT_EQ(seq->Get(4), 5);
-//     EXPECT_EQ(seq->GetFirst(), 1);
-//     EXPECT_EQ(seq->GetLast(), 5);
-// }
+// POLYMORPHISM (одинаковые для обеих реализаций)
+template<typename T>
+void TestSequenceBasics(Sequence<T>* seq) {
+    EXPECT_EQ(seq->GetLength(), 5);
+    EXPECT_EQ(seq->Get(0), 1);
+    EXPECT_EQ(seq->Get(4), 5);
+    EXPECT_EQ(seq->GetFirst(), 1);
+    EXPECT_EQ(seq->GetLast(), 5);
+}
 
-// TEST(PolymorphismTest, ArraySequenceViaPointer) {
-//     Sequence<int>* seq = new ArraySequence<int>(SEQ_TEST_ARR, SEQ_TEST_LEN);
-//     TestSequenceBasics(seq);
-//     delete seq;
-// }
+TEST(PolymorphismTest, ArraySequenceViaPointer) {
+    Sequence<int>* seq = new ArraySequence<int>(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    TestSequenceBasics(seq);
+    delete seq;
+}
 
-// TEST(PolymorphismTest, ListSequenceViaPointer) {
-//     Sequence<int>* seq = new ListSequence<int>(SEQ_TEST_ARR, SEQ_TEST_LEN);
-//     TestSequenceBasics(seq);
-//     delete seq;
-// }
+TEST(PolymorphismTest, ListSequenceViaPointer) {
+    Sequence<int>* seq = new ListSequence<int>(SEQ_TEST_ARR, SEQ_TEST_LEN);
+    TestSequenceBasics(seq);
+    delete seq;
+}
 
 // // MAP
 // int Square(int x) { return x * x; }

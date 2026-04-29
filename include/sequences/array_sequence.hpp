@@ -13,7 +13,7 @@ private:
 public:
     ArraySequence() : data(new DynamicArray<T>(0)) {};
     ArraySequence(T* items, int count) : data(new DynamicArray(items, count)) {};
-    ArraySequence(LinkedList<T>& list) : data(nullptr) {
+    ArraySequence(DynamicArray<T>& list) : data(nullptr) {
         int size = list.GetLength();
         if (size == 0) {
             data = new DynamicArray<T>(0);
@@ -29,19 +29,19 @@ public:
     }
     ~ArraySequence() override {
         delete data;
-    };
+    }
 
     T GetFirst() override {
         return data->Get(0);
-    };
+    }
 
     T GetLast() override {
         return data->Get(data->GetSize()-1);
-    };
+    }
 
     T Get(int index) override {
         return data->Get(index);
-    };
+    }
     Sequence<T>* GetSubsequence(int startIndex, int endIndex) override {
         int len = endIndex - startIndex + 1;
         T* t = new T[len]; 

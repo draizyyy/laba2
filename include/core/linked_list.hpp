@@ -150,7 +150,7 @@ public:
         }
     }
 
-     LinkedList<T>* Concat(LinkedList<T>* list) {
+    LinkedList<T>* Concat(LinkedList<T>* list) {
         LinkedList<T>* newList = new LinkedList<T>();
         Node* curr = head;
         while (curr) {
