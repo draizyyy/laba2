@@ -1,4 +1,5 @@
 #pragma once
+#include "iterators/ienumerator.hpp"
 
 namespace myLib {
 
@@ -24,7 +25,6 @@ public:
     // virtual Option<T> GetFirst(bool (*)(T) = 0) = 0;
     // virtual Option<T> GetLast(bool (*)(T) = 0) = 0;
     
-    // virtual IEnumerator<T>* GetEnumerator() = 0; 
+    virtual IEnumerator<T>* GetEnumerator() = 0; 
 };
-
 }

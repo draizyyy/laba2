@@ -1,15 +1,17 @@
 #pragma once
 #include "core/linked_list.hpp"
+#include "iterators/ienumerator.hpp"
+#include "iterators/list_enumerator.hpp"
 
 namespace myLib {
 template<typename T>
 class ListSequence : public Sequence<T> {
-private:
+protected:
     LinkedList<T>* data;
 public:
-    ListSequence () : data(new LinkedList<T>(0)) {}
+    ListSequence () : data(new LinkedList<T>()) {}
     ListSequence (T* items, int count) : data(new LinkedList<T>(items, count)) {}
-    ListSequence(LinkedList<T>& list) : data(LinkedList(list)) {}
+    ListSequence(LinkedList<T>& list) : data(new LinkedList(list)) {}
 
     ~ListSequence() override {
         delete data;
@@ -26,7 +28,7 @@ public:
     }
 
     Sequence<T>* GetSubsequence(int startIndex, int endIndex) override {
-        Sequence<T>* seq = new ListSequence<T>(data->GetSubList(startIndex, endIndex));
+        Sequence<T>* seq = new ListSequence<T>(*data->GetSubList(startIndex, endIndex));
         return seq;
     }
 
@@ -57,6 +59,9 @@ public:
         Sequence<T>* res = new ListSequence<T>(*newList);
         delete newList;
         return res;
+    }
+    IEnumerator<T>* GetEnumerator() override {
+        return new ListEnumerator<T>(data);
     }
 };
 }
