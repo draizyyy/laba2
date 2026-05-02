@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ЛР 2</title>
+    <style>
+        body { background: #0f172a !important; }
+        :root {
+            --bg: #0f172a;
+            --surface: rgba(30, 41, 59, 0.75);
+            --surface-hover: rgba(51, 65, 85, 0.8);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --success: #10b981;
+            --error: #ef4444;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: rgba(148, 163, 184, 0.2);
+            --glass: blur(16px);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+        body {
+            background: radial-gradient(circle at 20% 30%, #1e293b 0%, #0f172a 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem;
+            overflow-x: hidden;
+            background-image: radial-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
+        body::before {
+            content: '';
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 25%),
+                        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.06) 0%, transparent 25%);
+            z-index: -1;
+        }
+
+        #intro-dot {
+            position: fixed; top: 50%; left: 50%; width: 14px; height: 14px;
+            background: #6366f1; border-radius: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 25px #6366f1, 0 0 50px rgba(99, 102, 241, 0.5);
+            z-index: 9999; transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        #intro-dot.pulse { animation: dotPulse 0.7s ease-in-out; }
+        @keyframes dotPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 25px #6366f1; }
+            50% { transform: translate(-50%, -50%) scale(2.2); box-shadow: 0 0 45px #8b5cf6, 0 0 80px rgba(139, 92, 246, 0.6); }
+        }
+
+        .container {
+            max-width: 1200px; margin: 0 auto;
+            clip-path: circle(0% at 50% 50%);
+            transition: clip-path 1.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .container.reveal { clip-path: circle(150% at 50% 50%); }
+
+        header { text-align: center; margin-bottom: 2rem; position: relative; z-index: 2; }
+        header h1 {
+            font-size: 3rem; font-weight: 800;
+            background: linear-gradient(135deg, #818cf8, #a78bfa, #c4b5fd);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px rgba(129, 140, 248, 0.3);
+            letter-spacing: -0.5px;
+        }
+        header p { color: var(--text-muted); font-size: 1.05rem; max-width: 600px; margin: 0 auto; line-height: 1.6; }
+
+        .toggle-wrap { display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin-top: 1.2rem; position: relative; z-index: 2; }
+        .switch { position: relative; display: inline-block; width: 56px; height: 30px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #1e293b; transition: .3s; border-radius: 30px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+        .slider:before { position: absolute; content: ""; height: 24px; width: 24px; left: 3px; bottom: 3px; background: #e2e8f0; transition: .3s; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        input:checked + .slider { background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 0 15px rgba(99, 102, 241, 0.5); }
+        input:checked + .slider:before { transform: translateX(26px); }
+        .toggle-label { font-size: 0.9rem; color: var(--text-muted); cursor: pointer; user-select: none; transition: color 0.3s; }
+        .toggle-label:hover { color: var(--primary); }
+
+        main { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; position: relative; z-index: 2; }
+        @media (max-width: 850px) { main { grid-template-columns: 1fr; } }
+
+        .panel {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 1.6rem;
+            backdrop-filter: var(--glass); box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            position: relative; overflow: hidden;
+        }
+        .panel::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6, #6366f1);
+            transform: scaleX(0); transform-origin: left; transition: transform 0.5s ease;
+        }
+        .panel:hover { transform: translateY(-4px); box-shadow: 0 15px 40px rgba(0,0,0,0.35); border-color: rgba(99, 102, 241, 0.3); }
+        .panel:hover::before { transform: scaleX(1); }
+        .panel h2 { font-size: 1.3rem; margin-bottom: 1.2rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; position: relative; }
+        .panel h2::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 40px; height: 2px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 500; }
+        select, input {
+            width: 100%; padding: 0.8rem 0.9rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border);
+            border-radius: 10px; color: var(--text); font-size: 0.95rem; transition: all 0.25s ease; outline: none;
+        }
+        select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); transform: translateY(-1px); }
+        select option { background: #0f172a; color: var(--text); }
+
+        .btn {
+            width: 100%; padding: 0.8rem; border: none; border-radius: 10px; background: var(--surface-hover);
+            color: var(--text); font-weight: 600; cursor: pointer; transition: all 0.25s ease; margin-bottom: 0.5rem;
+            font-size: 1rem; position: relative; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn:hover { background: var(--primary); transform: translateY(-2px); box-shadow: 0 8px 15px rgba(99, 102, 241, 0.3); }
+        .btn:active { transform: translateY(0); box-shadow: 0 4px 8px rgba(99, 102, 241, 0.2); }
+        .btn.primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); margin-top: 0.5rem; box-shadow: 0 0 15px rgba(99, 102, 241, 0.3); }
+        .btn.primary:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 0 25px rgba(99, 102, 241, 0.5); }
+        .btn.highlight { background: linear-gradient(135deg, #8b5cf6, #6366f1); }
+        .btn.highlight:hover { background: linear-gradient(135deg, #7c3aed, #4f46e5); box-shadow: 0 0 25px rgba(139, 92, 246, 0.5); }
+
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+        .output-panel { grid-column: 1 / -1; min-height: 220px; }
+        #result { margin-top: 1rem; }
+        .result-header { font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem; color: #e2e8f0; display: flex; align-items: center; gap: 8px; }
+        .result-header::before { content: '✦'; font-size: 1.2rem; color: #8b5cf6; animation: pulseIcon 2s infinite; }
+        @keyframes pulseIcon { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.15); opacity: 1; } }
+
+        .status { padding: 0.9rem; border-radius: 10px; margin-bottom: 1rem; font-size: 1rem; animation: fadeIn 0.5s ease-out; position: relative; overflow: hidden; }
+        .status::before { content: ''; position: absolute; top: 0; left: 0; height: 100%; width: 4px; background: linear-gradient(180deg, var(--primary), #8b5cf6); }
+        .status.success { background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--success); color: #6ee7b7; }
+        .status.error { background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--error); color: #fca5a5; }
+        .status::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent); transform: translateX(-100%); animation: shine 3s infinite; }
+        @keyframes shine { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+        .seq-container { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; padding: 1rem 0; }
+        .empty-state { color: var(--text-muted); text-align: center; font-style: italic; width: 100%; padding: 1.2rem; background: rgba(30, 41, 59, 0.4); border-radius: 10px; }
+        .items-row { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 0.3rem; }
+        .item-box {
+            background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px;
+            padding: 0.6rem 0.9rem; text-align: center; animation: fadeInUp 0.5s ease-out both;
+            transition: all 0.25s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .item-box:hover { transform: translateY(-3px); background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.4); box-shadow: 0 8px 15px rgba(99, 102, 241, 0.2); }
+        .item-idx { font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem; font-weight: 600; }
+        .item-val { font-weight: 700; color: var(--text); font-size: 1.05rem; }
+        .conn-arrow { color: var(--text-muted); font-size: 1.2rem; margin: 0 0.2rem; opacity: 0.6; }
+
+        .json-view { background: #0b1120; border: 1px solid var(--border); border-radius: 10px; padding: 1rem; overflow-x: auto; font-family: 'Consolas', monospace; font-size: 0.95rem; color: #94a3b8; margin-top: 1rem; white-space: pre-wrap; box-shadow: inset 0 2px 8px rgba(0,0,0,0.3); position: relative; }
+        .json-view::before { content: 'JSON'; position: absolute; top: 8px; right: 8px; background: rgba(99, 102, 241, 0.15); padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; color: #8b5cf6; letter-spacing: 1px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div id="intro-dot"></div>
+    <div class="container" id="mainContainer">
+        <header>
+            <h1>ЛР 2</h1>
+            <p>По курсу информатики, 2 семестр</p>
+            <div class="toggle-wrap">
+                <label class="switch">
+                    <input type="checkbox" id="showJson">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-label" onclick="document.getElementById('showJson').click()">Режим разработчика (JSON)</span>
+            </div>
+        </header>
+
+        <main>
+            <section class="panel">
+                <h2>Создание</h2>
+                <div class="form-group">
+                    <label>Тип последовательности</label>
+                    <select id="seqType">
+                        <option value="array">На динамическом списке</option>
+                        <option value="list">На связном списке</option>
+                        <option value="bit">Битовая</option>
+                    </select>
+                </div>
+                <div class="form-group" id="elemTypeGroup">
+                    <label>Тип элементов</label>
+                    <select id="elemType">
+                        <option value="int">Целочисленный</option>
+                        <option value="double">Дробный</option>
+                        <option value="string">Строковый</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Начальные элементы (через запятую)</label>
+                    <input type="text" id="items" placeholder="1, 2, 3 или hello, world">
+                </div>
+                <button onclick="createSequence()" class="btn primary">Создать последовательность</button>
+            </section>
+
+            <section class="panel">
+                <h2>Операции</h2>
+                <div class="form-group">
+                    <label>Выберите последовательность</label>
+                    <select id="seqId"></select>
+                </div>
+                <div class="form-group">
+                    <label>Значение элемента</label>
+                    <input type="text" id="item" placeholder="Значение">
+                </div>
+                <div class="form-group">
+                    <label>Индекс</label>
+                    <input type="number" id="index" placeholder="0">
+                </div>
+                <div class="actions">
+                    <button onclick="append()" class="btn">Добавить в конец</button>
+                    <button onclick="prepend()" class="btn">Добавить в начало</button>
+                    <button onclick="insert()" class="btn">Вставить по индексу</button>
+                    <button onclick="get()" class="btn">Получить по индексу</button>
+                    <button onclick="getFirst()" class="btn">Первый элемент</button>
+                    <button onclick="getLast()" class="btn">Последний элемент</button>
+                    <button onclick="showSequence()" class="btn highlight">Показать последовательность</button>
+                </div>
+            </section>
+
+            <section class="panel output-panel">
+                <h2>Результат</h2>
+                <div id="result">
+                    <div class="status success">Готово к работе. Создайте первую последовательность.</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            const dot = document.getElementById('intro-dot');
+            const container = document.getElementById('mainContainer');
+            dot.classList.add('pulse');
+            setTimeout(() => {
+                container.classList.add('reveal');
+                dot.style.opacity = '0';
+                dot.style.transform = 'translate(-50%, -50%) scale(0)';
+                setTimeout(() => dot.remove(), 600);
+            }, 750);
+        });
+
+        let sequences = [];
+        document.addEventListener('DOMContentLoaded', () => {
+            const seqType = document.getElementById('seqType');
+            const elemTypeGroup = document.getElementById('elemTypeGroup');
+            seqType.addEventListener('change', () => {
+                elemTypeGroup.style.display = seqType.value === 'bit' ? 'none' : 'flex';
+            });
+        });
+
+        function updateSequencesList() {
+            const select = document.getElementById('seqId');
+            const currentSelected = select.value;
+            select.innerHTML = '<option value="">-- Выберите --</option>';
+            sequences.forEach(seq => {
+                const opt = document.createElement('option');
+                opt.value = seq.id;
+                const type = seq.type || seq.container_type || '?';
+                const elemType = seq.elemType || seq.elem_type || '?';
+                const length = seq.length ?? 0;
+                opt.textContent = `#${seq.id} (${type} | ${elemType}) [${length} эл.]`;
+                select.appendChild(opt);
+            });
+            if (currentSelected && sequences.some(s => s.id == currentSelected)) {
+                select.value = currentSelected;
+            }
+        }
+
+        async function apiCall(url, method = 'GET', body = null) {
+            try {
+                const opts = { method, headers: { 'Content-Type': 'application/json' } };
+                if (body) opts.body = JSON.stringify(body);
+                const res = await fetch(url, opts);
+                return await res.json();
+            } catch (e) {
+                return { error: 'Ошибка соединения с сервером. Проверьте, запущен ли Flask.' };
+            }
+        }
+
+        function showResult(title, data = null) {
+            const el = document.getElementById('result');
+            const showJson = document.getElementById('showJson').checked;
+            el.innerHTML = `<div class="result-header">${title}</div>`;
+            if (!data) {
+                el.innerHTML += `<div class="status error">⚠ Нет данных для отображения</div>`;
+                return;
+            }
+            if (showJson) {
+                el.innerHTML += `<pre class="json-view">${JSON.stringify(data, null, 2)}</pre>`;
+                return;
+            }
+            if (data.error) {
+                el.innerHTML += `<div class="status error">⚠ ${data.error}</div>`;
+                return;
+            }
+            if (data.items !== undefined) {
+                el.innerHTML += `<div class="seq-container">${renderSequenceItems(data.items)}</div>`;
+                return;
+            }
+            if (data.result !== undefined) {
+                el.innerHTML += `<div class="status success">✅ Значение: <strong>${data.result}</strong></div>`;
+                return;
+            }
+            el.innerHTML += `<div class="status success">✅ Операция выполнена</div>`;
+        }
+
+        function renderSequenceItems(items) {
+            if (!items || items.length === 0) return '<div class="empty-state">Пустая последовательность</div>';
+            let html = '<div class="items-row">';
+            items.forEach((val, i) => {
+                html += `<div class="item-box" style="animation-delay:${i*0.06}s">
+                            <span class="item-idx">[${i}]</span>
+                            <span class="item-val">${val}</span>
+                         </div>`;
+                if (i < items.length - 1) html += '<span class="conn-arrow">→</span>';
+            });
+            html += '</div>';
+            return html;
+        }
+
+        async function createSequence() {
+            const type = document.getElementById('seqType').value;
+            const elemType = document.getElementById('elemType').value;
+            const raw = document.getElementById('items').value;
+            const items = raw ? raw.split(',').map(s => s.trim()).filter(s => s !== '') : [];
+            const data = await apiCall('/api/create', 'POST', { type, elemType, items });
+            if (!data || data.error) {
+                showResult('Ошибка создания', data || { error: 'Пустой ответ от сервера' });
+                return;
+            }
+            if (!data.id) {
+                showResult('Ошибка сервера', { error: 'Сервер вернул ответ без ID' });
+                return;
+            }
+            data.type = type;
+            data.elemType = elemType;
+            sequences.push(data);
+            updateSequencesList();
+            showResult(`Последовательность #${data.id} создана (тип: ${elemType})`, data);
+            document.getElementById('items').value = '';
+        }
+
+        async function append() {
+            const id = document.getElementById('seqId').value;
+            const item = document.getElementById('item').value;
+            if (!id) return showResult('Ошибка', { error: 'Сначала выберите последовательность из списка' });
+            const data = await apiCall(`/api/${id}/append`, 'POST', { item });
+            if (data.error) return showResult('Ошибка добавления', data);
+            updateLocalState(id, data);
+            updateSequencesList();
+            showResult(`Элемент добавлен в конец #${id}`, data);
+        }
+
+        async function prepend() {
+            const id = document.getElementById('seqId').value;
+            const item = document.getElementById('item').value;
+            if (!id) return showResult('Ошибка', { error: 'Сначала выберите последовательность из списка' });
+            const data = await apiCall(`/api/${id}/prepend`, 'POST', { item });
+            if (data.error) return showResult('Ошибка добавления', data);
+            updateLocalState(id, data);
+            updateSequencesList();
+            showResult(`Элемент добавлен в начало #${id}`, data);
+        }
+
+        async function insert() {
+            const id = document.getElementById('seqId').value;
+            let index = document.getElementById('index').value.trim();
+            const item = document.getElementById('item').value;
+            if (!id) return showResult('Ошибка', { error: 'Сначала выберите последовательность из списка' });
+            if (index === '' || isNaN(index)) index = '0';
+            const data = await apiCall(`/api/${id}/insert`, 'POST', { index, item });
+            if (data.error) return showResult('Ошибка вставки', data);
+            updateLocalState(id, data);
+            updateSequencesList();
+            showResult(`Элемент вставлен в #${id}`, data);
+        }
+
+        async function get() {
+            const id = document.getElementById('seqId').value;
+            let index = document.getElementById('index').value.trim();
+            if (!id) return showResult('Ошибка', { error: 'Сначала выберите последовательность из списка' });
+            if (index === '' || isNaN(index)) index = '0';
+            const data = await apiCall(`/api/${id}/get?index=${index}`);
+            if (data.error) return showResult('Ошибка получения', data);
+            showResult(`Элемент по индексу ${index} из #${id}`, data);
+        }
+
+        async function getFirst() {
+            const id = document.getElementById('seqId').value;
+            if (!id) return showResult('Ошибка', { error: 'Сначала выберите последовательность из списка' });
+            const data = await apiCall(`/api/${id}/first`);
+            if (data.error) return showResult('Ошибка получения', data);
+            showResult(`Первый элемент из #${id}`, data);
+        }
+
+        async function getLast() {
+            const id = document.getElementById('seqId').value;
+            if (!id) return showResult('Ошибка', { error: 'Сначала выберите последовательность из списка' });
+            const data = await apiCall(`/api/${id}/last`);
+            if (data.error) return showResult('Ошибка получения', data);
+            showResult(`Последний элемент из #${id}`, data);
+        }
+
+        async function showSequence() {
+            const id = document.getElementById('seqId').value;
+            if (!id) return showResult('Ошибка', { error: 'Сначала выберите последовательность из списка' });
+            const data = await apiCall(`/api/${id}/show`);
+            if (data.error) return showResult('Ошибка отображения', data);
+            showResult(`Содержимое последовательности #${id}`, data);
+        }
+
+        function updateLocalState(id, newData) {
+            const seq = sequences.find(s => s.id == id);
+            if (seq) { seq.length = newData.length; seq.items = newData.items; }
+        }
+    </script>
+</body>
+</html>

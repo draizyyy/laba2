@@ -3,6 +3,7 @@
 #include "core/dynamic_array.hpp"
 #include "core/linked_list.hpp"
 #include "iterators/ienumerator.hpp"
+#include "iterators/array_enumerator.hpp"
 #include "option.hpp"
 
 namespace myLib {
