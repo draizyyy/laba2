@@ -3,6 +3,7 @@
 #include "core/dynamic_array.hpp"
 #include "core/linked_list.hpp"
 #include "iterators/ienumerator.hpp"
+#include "option.hpp"
 
 namespace myLib {
 
@@ -12,12 +13,12 @@ private:
     DynamicArray<T>* data;
 protected:
     virtual ArraySequence<T>* Clone() {
-        T* items = new T[data->GetSize()];
+        T* t = new T[data->GetSize()];
         for (int i = 0; i < data->GetSize(); i++) {
-            items[i] = data->Get(i);
+            t[i] = data->Get(i);
         }
-        ArraySequence<T>* cloned = new ArraySequence<T>(items, data->GetSize());
-        delete[] items;
+        ArraySequence<T>* cloned = new ArraySequence<T>(t, data->GetSize());
+        delete[] t;
         return cloned;
     };
     virtual ArraySequence<T>* Instance() {
@@ -133,14 +134,64 @@ public:
         return new ArrayEnumerator<T>(data);
     }
 
-    // template<typename T2>
-    // Sequence<T2>* Map(T2 (*func)(T)) override;
-    // Sequence<T>* Where(bool (*predicate)(T)) override;
-    // template<typename T2>
-    // T2 Reduce(T2 (*func)(T2, T), T2 seed) override;
-    // Option<T> GetFirst(bool (*predicate)(T) = nullptr) override;
-    // Option<T> GetLast(bool (*predicate)(T) = nullptr) override;
-    // IEnumerator<T>* GetEnumerator() override;
+    template<typename T2>
+    Sequence<T2>* Map(T2 (*func)(T)) {
+        int len = GetLength();
+        T2* t2 = new T2[len];
+        for (int i = 0; i < len; i++) {
+            t2[i] = func(Get(i));
+        }
+        Sequence<T2>* seq = new ArraySequence<T2>(t2, len);
+        delete[] t2;
+        return seq;
+    }
+
+    Sequence<T>* Where(bool (*predicate)(T)) {
+        int len = GetLength();
+        T* t = new T[len];
+        int count = 0;
+        for (int i = 0; i < len; i++) {
+            T t2 = Get(i);
+            if (predicate(t2)) {
+                t[count++] = t2;
+            }
+        }
+        Sequence<T>* seq = new ArraySequence<T>(t, count);
+        delete[] t;
+        return seq;
+    }
+
+    template<typename T2>
+    Sequence<T2>* Reduce(T2 (*func)(T2, T), T2 t2) {
+        T2 t = t2;
+        int len = GetLength();
+        for (int i = 0; i < len; i++) {
+            t = func(t, Get(i));
+        }
+        return new ArraySequence<T2>(&t, 1);
+    }
+
+    Option<T> GetFirst(bool (*predicate)(T))  {
+        int len = GetLength();
+        for (int i = 0; i < len; i++) {
+            T t = Get(i);
+            if (predicate == nullptr || predicate(t)) {
+                return Option<T>(t);
+            }
+        }
+        return Option<T>();
+    }
+
+    Option<T> GetLast(bool (*predicate)(T)) {
+        int len = GetLength();
+        for (int i = len - 1; i >= 0; i--) {
+            T t = Get(i);
+            if (predicate == nullptr || predicate(t)) {
+                return Option<T>(t);
+            }
+        }
+        return Option<T>();
+    }
 };
 
 template<typename T>
@@ -158,12 +209,12 @@ class ImmutableArraySequence : public ArraySequence<T> {
     protected:
     ArraySequence<T>* Clone() override {
         int size = this->GetLength();
-        T* items = new T[size];
+        T* t = new T[size];
         for (int i = 0; i < size; i++) {
-            items[i] = this->Get(i);
+            t[i] = this->Get(i);
         }
-        ArraySequence<T>* cloned = new ImmutableArraySequence<T>(items, size);
-        delete[] items;
+        ArraySequence<T>* cloned = new ImmutableArraySequence<T>(t, size);
+        delete[] t;
         return cloned;
     }
 

@@ -2,6 +2,7 @@
 #include "core/linked_list.hpp"
 #include "iterators/ienumerator.hpp"
 #include "iterators/list_enumerator.hpp"
+#include "option.hpp"
 
 namespace myLib {
 template<typename T>
@@ -62,6 +63,65 @@ public:
     }
     IEnumerator<T>* GetEnumerator() override {
         return new ListEnumerator<T>(data);
+    }
+
+    template<typename T2>
+    Sequence<T2>* Map(T2 (*func)(T)) {
+        int len = GetLength();
+        T2* t2 = new T2[len];
+        for (int i = 0; i < len; i++) {
+            t2[i] = func(Get(i));
+        }
+        Sequence<T2>* seq = new ListSequence<T2>(t2, len);
+        delete[] t2;
+        return seq;
+    }
+
+    Sequence<T>* Where(bool (*predicate)(T)) {
+        int len = GetLength();
+        T* t = new T[len];
+        int count = 0;
+        for (int i = 0; i < len; i++) {
+            T t2 = Get(i);
+            if (predicate(t2)) {
+                t[count++] = t2;
+            }
+        }
+        Sequence<T>* seq = new ListSequence<T>(t, count);
+        delete[] t;
+        return seq;
+    }
+
+    template<typename T2>
+    Sequence<T2>* Reduce(T2 (*func)(T2, T), T2 t2) {
+        T2 t = t2;
+        int len = GetLength();
+        for (int i = 0; i < len; i++) {
+            t = func(t, Get(i));
+        }
+        return new ListSequence<T2>(&t, 1);
+    }
+
+    Option<T> GetFirst(bool (*predicate)(T)) {
+        int len = GetLength();
+        for (int i = 0; i < len; i++) {
+            T t = Get(i);
+            if (predicate == nullptr || predicate(t)) {
+                return Option<T>(t);
+            }
+        }
+        return Option<T>();
+    }
+
+    Option<T> GetLast(bool (*predicate)(T)) {
+        int len = GetLength();
+        for (int i = len - 1; i >= 0; i--) {
+            T t = Get(i);
+            if (predicate == nullptr || predicate(t)) {
+                return Option<T>(t);
+            }
+        }
+        return Option<T>();
     }
 };
 }

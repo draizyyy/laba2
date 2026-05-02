@@ -1,10 +1,11 @@
 #pragma once
 #include "iterators/ienumerator.hpp"
+#include "iterators/ienumerable.hpp"
 
 namespace myLib {
 
 template <class T>
-class Sequence {
+class Sequence : public IEnumerable<T> {
 public:
     virtual ~Sequence() = default;
 
@@ -21,10 +22,10 @@ public:
 
     // virtual Sequence <T>* Map(T2 (*)(T)) = 0;
     // virtual Sequence <T>* Where(bool (*)(T)) = 0;
+
+    // template <typename T2>
     // virtual Sequence <T>* Reduce(T2 (*)(T2,T)) = 0;
     // virtual Option<T> GetFirst(bool (*)(T) = 0) = 0;
     // virtual Option<T> GetLast(bool (*)(T) = 0) = 0;
-    
-    virtual IEnumerator<T>* GetEnumerator() = 0; 
 };
 }
