@@ -12,6 +12,12 @@
 #include "option.hpp"
 #include "sequences/bit_sequence.hpp"
 
+#include "sequences/deque_sequence.hpp"
+#include "utils/student.hpp"
+#include "utils/teacher.hpp"
+#include "utils/person.hpp"
+
+
 using namespace myLib;
 
 static int TEST_ARR[] = {10, 20, 30, 40, 50};
@@ -1109,3 +1115,545 @@ TEST(BitSequenceTest, Iterator) {
     EXPECT_FALSE(it->MoveNext());
     delete it;
 }
+
+// DEQUE 
+
+// Deque базовые
+TEST(DequeSequenceTest, PushFrontPushBack) {
+    DequeSequence<int> deque;
+    deque.PushFront(3);
+    deque.PushFront(2);
+    deque.PushFront(1);
+    deque.PushBack(4);
+    deque.PushBack(5);
+    
+    EXPECT_EQ(deque.GetLength(), 5);
+    EXPECT_EQ(deque.GetFront(), 1);
+    EXPECT_EQ(deque.GetBack(), 5);
+    EXPECT_EQ(deque.Get(0), 1);
+    EXPECT_EQ(deque.Get(2), 3);
+    EXPECT_EQ(deque.Get(4), 5);
+}
+
+TEST(DequeSequenceTest, ConstructorFromArray) {
+    int arr[] = {10, 20, 30, 40};
+    DequeSequence<int> deque(arr, 4);
+    
+    EXPECT_EQ(deque.GetLength(), 4);
+    EXPECT_EQ(deque.GetFront(), 10);
+    EXPECT_EQ(deque.GetBack(), 40);
+    EXPECT_EQ(deque.Get(2), 30);
+}
+
+TEST(DequeSequenceTest, GetFirstGetLast) {
+    DequeSequence<int> deque;
+    deque.PushBack(100);
+    deque.PushBack(200);
+    deque.PushFront(50);
+    
+    EXPECT_EQ(deque.GetFirst(), 50);
+    EXPECT_EQ(deque.GetLast(), 200);
+}
+
+TEST(DequeSequenceTest, Get_InvalidIndex) {
+    DequeSequence<int> deque;
+    deque.PushBack(1);
+    deque.PushBack(2);
+    
+    EXPECT_THROW(deque.Get(-1), IndexOutOfRangeException);
+    EXPECT_THROW(deque.Get(2), IndexOutOfRangeException);
+}
+
+// Deque операции
+TEST(DequeSequenceTest, AppendPrependInsertAt) {
+    DequeSequence<int> deque;
+    deque.Append(2);
+    deque.Append(3);
+    deque.Prepend(1);
+    deque.InsertAt(99, 2);
+    
+    EXPECT_EQ(deque.GetLength(), 4);
+    EXPECT_EQ(deque.Get(0), 1);
+    EXPECT_EQ(deque.Get(1), 2);
+    EXPECT_EQ(deque.Get(2), 99);
+    EXPECT_EQ(deque.Get(3), 3);
+}
+
+TEST(DequeSequenceTest, Concat) {
+    int a[] = {1, 2};
+    int b[] = {3, 4, 5};
+    DequeSequence<int> dequeA(a, 2);
+    DequeSequence<int> dequeB(b, 3);
+    
+    Sequence<int>* concat = dequeA.Concat(&dequeB);
+    
+    EXPECT_EQ(concat->GetLength(), 5);
+    EXPECT_EQ(concat->Get(0), 1);
+    EXPECT_EQ(concat->Get(2), 3);
+    EXPECT_EQ(concat->Get(4), 5);
+    
+    delete concat;
+}
+
+TEST(DequeSequenceTest, GetSubsequence) {
+    int arr[] = {1, 2, 3, 4, 5};
+    DequeSequence<int> deque(arr, 5);
+    
+    Sequence<int>* sub = deque.GetSubsequence(1, 3);
+    
+    ASSERT_NE(sub, nullptr);
+    EXPECT_EQ(sub->GetLength(), 3);
+    EXPECT_EQ(sub->Get(0), 2);
+    EXPECT_EQ(sub->Get(1), 3);
+    EXPECT_EQ(sub->Get(2), 4);
+    
+    delete sub;
+}
+
+TEST(DequeSequenceTest, ContainsSubsequence_Found) {
+    int arr[] = {1, 2, 3, 4, 5, 6};
+    DequeSequence<int> deque(arr, 6);
+    
+    int subArr[] = {3, 4, 5};
+    DequeSequence<int> subSeq(subArr, 3);
+    
+    EXPECT_TRUE(deque.ContainsSubsequence(&subSeq));
+}
+
+TEST(DequeSequenceTest, ContainsSubsequence_NotFound) {
+    int arr[] = {1, 2, 3, 4, 5};
+    DequeSequence<int> deque(arr, 5);
+    
+    int subArr[] = {2, 4, 6};
+    DequeSequence<int> subSeq(subArr, 3);
+    
+    EXPECT_FALSE(deque.ContainsSubsequence(&subSeq));
+}
+
+TEST(DequeSequenceTest, ContainsSubsequence_Empty) {
+    DequeSequence<int> deque;
+    int subArr[] = {1};
+    DequeSequence<int> subSeq(subArr, 1);
+    
+    EXPECT_FALSE(deque.ContainsSubsequence(&subSeq));
+}
+
+TEST(DequeSequenceTest, ContainsSubsequence_SingleElement) {
+    DequeSequence<int> deque;
+    deque.PushBack(42);
+    
+    int subArr[] = {42};
+    DequeSequence<int> subSeq(subArr, 1);
+    
+    EXPECT_TRUE(deque.ContainsSubsequence(&subSeq));
+}
+
+// Deque + Student
+TEST(DequeSequenceTest, Student_Storage) {
+    PersonID pid1("4521", "123456");
+    PersonID pid2("4521", "654321");
+    std::string first1 = "Иван", middle1 = "Иванович", last1 = "Иванов";
+    std::string first2 = "Мария", middle2 = "Петровна", last2 = "Сидорова";
+    std::string studId1 = "СТУД-001", studId2 = "СТУД-002";
+    std::string group1 = "Б25-521", group2 = "Б25-511";
+    
+    Student s1(pid1, first1, middle1, last1, studId1, group1, 2021);
+    Student s2(pid2, first2, middle2, last2, studId2, group2, 2022);
+    
+    DequeSequence<Student> students;
+    students.PushBack(s1);
+    students.PushBack(s2);
+    
+    EXPECT_EQ(students.GetLength(), 2);
+    EXPECT_EQ(students.GetFront().GetStudentId(), "СТУД-001");
+    EXPECT_EQ(students.GetBack().GetGroup(), "Б25-511");
+    EXPECT_EQ(students.Get(0).GetFullName(), "Иванов Иван Иванович");
+}
+
+static bool IsFromGroup(Student& s) { 
+    return s.GetGroup() == "Б25-521"; 
+}
+
+// Deque + Teacher
+TEST(DequeSequenceTest, Teacher_Storage) {
+    PersonID pid("1234", "567890");
+    std::string first = "Пётр", middle = "Сергеевич", last = "Петров";
+    std::string empId = "Б25-504", dept = "Кафедра информатики", post = "Доцент";
+    
+    Teacher t(pid, first, middle, last, empId, dept, post, 75000);
+    
+    DequeSequence<Teacher> teachers;
+    teachers.PushFront(t);
+    
+    EXPECT_EQ(teachers.GetLength(), 1);
+    EXPECT_EQ(teachers.GetFront().GetEmployeeId(), "Б25-504");
+    EXPECT_EQ(teachers.GetFront().GetSalary(), 75000);
+    EXPECT_EQ(teachers.GetFront().GetFullName(), "Петров Пётр Сергеевич");
+}
+
+// Deque крайние
+TEST(DequeSequenceTest, EmptyDeque_Operations) {
+    DequeSequence<int> deque;
+    
+    EXPECT_EQ(deque.GetLength(), 0);
+    EXPECT_THROW(deque.GetFirst(), IndexOutOfRangeException);
+    EXPECT_THROW(deque.GetLast(), IndexOutOfRangeException);
+    EXPECT_THROW(deque.Get(0), IndexOutOfRangeException);
+}
+
+TEST(DequeSequenceTest, ConcatWithEmpty) {
+    DequeSequence<int> empty;
+    int arr[] = {1, 2, 3};
+    DequeSequence<int> nonEmpty(arr, 3);
+    
+    Sequence<int>* res1 = empty.Concat(&nonEmpty);
+    EXPECT_EQ(res1->GetLength(), 3);
+    EXPECT_EQ(res1->Get(0), 1);
+    delete res1;
+    
+    Sequence<int>* res2 = nonEmpty.Concat(&empty);
+    EXPECT_EQ(res2->GetLength(), 3);
+    EXPECT_EQ(res2->Get(2), 3);
+    delete res2;
+}
+
+TEST(DequeSequenceTest, SubsequenceEdgeCases) {
+    int arr[] = {1, 2, 3};
+    DequeSequence<int> deque(arr, 3);
+    
+    Sequence<int>* sub1 = deque.GetSubsequence(1, 1);
+    EXPECT_EQ(sub1->GetLength(), 1);
+    EXPECT_EQ(sub1->Get(0), 2);
+    delete sub1;
+
+    Sequence<int>* sub2 = deque.GetSubsequence(0, 2);
+    EXPECT_EQ(sub2->GetLength(), 3);
+    delete sub2;
+    
+    EXPECT_THROW(deque.GetSubsequence(-1, 1), IndexOutOfRangeException);
+    EXPECT_THROW(deque.GetSubsequence(0, 5), IndexOutOfRangeException);
+    EXPECT_THROW(deque.GetSubsequence(2, 1), IndexOutOfRangeException);
+}
+
+// TEST(DequeSequenceTest, PopFront_Basic) {
+//     int arr[] = {1, 2, 3, 4, 5};
+//     DequeSequence<int> deque(arr, 5);
+    
+//     EXPECT_EQ(deque.PopFront(), 1);
+//     EXPECT_EQ(deque.GetLength(), 4);
+//     EXPECT_EQ(deque.GetFront(), 2);
+// }
+
+// TEST(DequeSequenceTest, PopBack_Basic) {
+//     int arr[] = {1, 2, 3, 4, 5};
+//     DequeSequence<int> deque(arr, 5);
+
+//     EXPECT_EQ(deque.PopBack(), 5);
+//     EXPECT_EQ(deque.GetLength(), 4);
+//     EXPECT_EQ(deque.GetBack(), 4);
+// }
+
+// TEST(DequeSequenceTest, PopFrontPopBack_Empty) {
+//     DequeSequence<int> deque;
+    
+//     EXPECT_THROW(deque.PopFront(), IndexOutOfRangeException);
+//     EXPECT_THROW(deque.PopBack(), IndexOutOfRangeException);
+// }
+
+TEST(DequeSequenceTest, GetsubSequence_InvalidIndices) {
+    int arr[] = {1, 2, 3};
+    DequeSequence<int> deque(arr, 3);
+    
+    EXPECT_THROW(deque.GetSubsequence(-1, 1), IndexOutOfRangeException);
+    EXPECT_THROW(deque.GetSubsequence(0, 5), IndexOutOfRangeException);
+    EXPECT_THROW(deque.GetSubsequence(2, 1), IndexOutOfRangeException);
+}
+
+TEST(DequeSequenceTest, ContainsSubsequence_InvalidCases) {
+    DequeSequence<int> empty;
+    int arr[] = {1, 2, 3};
+    DequeSequence<int> deque(arr, 3);
+    
+    EXPECT_FALSE(empty.ContainsSubsequence(&deque));
+    
+    DequeSequence<int> emptySub;
+}
+
+TEST(DequeSequenceTest, Concat_MultipleDeques) {
+    int a[] = {1};
+    int b[] = {2, 3};
+    int c[] = {4, 5, 6};
+    
+    DequeSequence<int> dequeA(a, 1);
+    DequeSequence<int> dequeB(b, 2);
+    DequeSequence<int> dequeC(c, 3);
+    
+    Sequence<int>* concat1 = dequeA.Concat(&dequeB);
+    Sequence<int>* concat2 = concat1->Concat(&dequeC);
+    
+    EXPECT_EQ(concat2->GetLength(), 6);
+    EXPECT_EQ(concat2->Get(0), 1);
+    EXPECT_EQ(concat2->Get(5), 6);
+    
+    delete concat1;
+    delete concat2;
+}
+
+// // Deque Map
+// TEST(DequeSequenceTest, Map_Square) {
+//     int arr[] = {1, 2, 3, 4, 5};
+//     DequeSequence<int> deque(arr, 5);
+    
+//     auto square = [](int x) { return x * x; };
+//     Sequence<int>* result = deque.Map(square);
+    
+//     ASSERT_NE(result, nullptr);
+//     EXPECT_EQ(result->GetLength(), 5);
+//     EXPECT_EQ(result->Get(0), 1);
+//     EXPECT_EQ(result->Get(2), 9);
+//     EXPECT_EQ(result->Get(4), 25);
+    
+//     delete result;
+// }
+
+// TEST(DequeSequenceTest, Map_ToString) {
+//     int arr[] = {10, 20, 30};
+//     DequeSequence<int> deque(arr, 3);
+    
+//     auto toString = [](int x) { return std::to_string(x); };
+//     Sequence<std::string>* result = deque.Map<std::string>(toString);
+    
+//     EXPECT_EQ(result->GetLength(), 3);
+//     EXPECT_EQ(result->Get(0), "10");
+//     EXPECT_EQ(result->Get(1), "20");
+//     EXPECT_EQ(result->Get(2), "30");
+    
+//     delete result;
+// }
+
+// TEST(DequeSequenceTest, Map_Empty) {
+//     DequeSequence<int> deque;
+    
+//     auto identity = [](int x) { return x; };
+//     Sequence<int>* result = deque.Map(identity);
+    
+//     EXPECT_EQ(result->GetLength(), 0);
+    
+//     delete result;
+// }
+
+// TEST(DequeSequenceTest, Student_WhereFilter) {
+//     PersonID pid1("4519", "111111"), pid2("4519", "222222"), pid3("4519", "333333");
+//     std::string f = "A", m = "B", l = "C";
+    
+//     Student s1(pid1, f, m, l, "S1", "Б25-521", 2021);
+//     Student s2(pid2, f, m, l, "S2", "Б25-511", 2022);
+//     Student s3(pid3, f, m, l, "S3", "Б25-521", 2023);
+    
+//     DequeSequence<Student> students;
+//     students.PushBack(s1);
+//     students.PushBack(s2);
+//     students.PushBack(s3);
+    
+//     // Sequence<Student>* filtered = students.Where(IsFromGroup);
+//     // EXPECT_EQ(filtered->GetLength(), 2);
+//     // delete filtered;
+// }
+
+// TEST(DequeSequenceTest, Where_FilterEven) {
+//     int arr[] = {1, 2, 3, 4, 5, 6};
+//     DequeSequence<int> deque(arr, 6);
+    
+//     auto isEven = [](int x) { return x % 2 == 0; };
+//     Sequence<int>* result = deque.Where(isEven);
+    
+//     EXPECT_EQ(result->GetLength(), 3);
+//     EXPECT_EQ(result->Get(0), 2);
+//     EXPECT_EQ(result->Get(1), 4);
+//     EXPECT_EQ(result->Get(2), 6);
+    
+//     delete result;
+// }
+
+// TEST(DequeSequenceTest, Where_FilterPositive) {
+//     int arr[] = {-3, -1, 0, 2, 4};
+//     DequeSequence<int> deque(arr, 5);
+    
+//     auto isPositive = [](int x) { return x > 0; };
+//     Sequence<int>* result = deque.Where(isPositive);
+    
+//     EXPECT_EQ(result->GetLength(), 2);
+//     EXPECT_EQ(result->Get(0), 2);
+//     EXPECT_EQ(result->Get(1), 4);
+    
+//     delete result;
+// }
+
+// TEST(DequeSequenceTest, Where_NoMatches) {
+//     int arr[] = {1, 3, 5};
+//     DequeSequence<int> deque(arr, 3);
+    
+//     auto isEven = [](int x) { return x % 2 == 0; };
+//     Sequence<int>* result = deque.Where(isEven);
+    
+//     EXPECT_EQ(result->GetLength(), 0);
+    
+//     delete result;
+// }
+
+// TEST(DequeSequenceTest, Where_AllMatch) {
+//     int arr[] = {2, 4, 6};
+//     DequeSequence<int> deque(arr, 3);
+    
+//     auto isEven = [](int x) { return x % 2 == 0; };
+//     Sequence<int>* result = deque.Where(isEven);
+    
+//     EXPECT_EQ(result->GetLength(), 3);
+//     EXPECT_EQ(result->Get(0), 2);
+    
+//     delete result;
+// }
+
+// // Deque Reduce
+// TEST(DequeSequenceTest, Reduce_Sum) {
+//     int arr[] = {1, 2, 3, 4, 5};
+//     DequeSequence<int> deque(arr, 5);
+    
+//     auto sumFunc = [](int acc, int x) { return acc + x; };
+//     int result = deque.Reduce(sumFunc, 0);
+    
+//     EXPECT_EQ(result, 15);
+// }
+
+// TEST(DequeSequenceTest, Reduce_Product) {
+//     int arr[] = {2, 3, 4};
+//     DequeSequence<int> deque(arr, 3);
+    
+//     auto prodFunc = [](int acc, int x) { return acc * x; };
+//     int result = deque.Reduce(prodFunc, 1);
+    
+//     EXPECT_EQ(result, 24);
+// }
+
+// TEST(DequeSequenceTest, Reduce_Empty) {
+//     DequeSequence<int> deque;
+    
+//     auto sumFunc = [](int acc, int x) { return acc + x; };
+//     int result = deque.Reduce(sumFunc, 42);
+    
+//     EXPECT_EQ(result, 42);
+// }
+
+// TEST(DequeSequenceTest, Reduce_CustomOperation) {
+//     int arr[] = {1, 2, 3};
+//     DequeSequence<int> deque(arr, 3);
+    
+//     auto customFunc = [](int x1, int x2) { return 2 * x1 + 3 * x2; };
+//     int result = deque.Reduce(customFunc, 4);
+    
+//     EXPECT_EQ(result, 144);
+// }
+
+// // Deque Sort
+// TEST(DequeSequenceTest, Sort_Ascending) {
+//     int arr[] = {5, 2, 8, 1, 9, 3};
+//     DequeSequence<int> deque(arr, 6);
+    
+//     deque.Sort();  
+    
+//     EXPECT_EQ(deque.Get(0), 1);
+//     EXPECT_EQ(deque.Get(1), 2);
+//     EXPECT_EQ(deque.Get(2), 3);
+//     EXPECT_EQ(deque.Get(3), 5);
+//     EXPECT_EQ(deque.Get(4), 8);
+//     EXPECT_EQ(deque.Get(5), 9);
+// }
+
+// TEST(DequeSequenceTest, Sort_Descending) {
+//     int arr[] = {3, 1, 4, 1, 5};
+//     DequeSequence<int> deque(arr, 5);
+    
+//     auto greater = [](int a, int b) { return a > b; };
+//     deque.Sort(greater);
+    
+//     EXPECT_EQ(deque.Get(0), 5);
+//     EXPECT_EQ(deque.Get(1), 4);
+//     EXPECT_EQ(deque.Get(2), 3);
+//     EXPECT_EQ(deque.Get(3), 1);
+//     EXPECT_EQ(deque.Get(4), 1);
+// }
+
+// TEST(DequeSequenceTest, Sort_AlreadySorted) {
+//     int arr[] = {1, 2, 3, 4, 5};
+//     DequeSequence<int> deque(arr, 5);
+    
+//     deque.Sort();
+    
+//     EXPECT_EQ(deque.Get(0), 1);
+//     EXPECT_EQ(deque.Get(4), 5);
+// }
+
+// TEST(DequeSequenceTest, Sort_Empty) {
+//     DequeSequence<int> deque;
+    
+//     deque.Sort();
+//     EXPECT_EQ(deque.GetLength(), 0);
+// }
+
+// TEST(DequeSequenceTest, Sort_SingleElement) {
+//     DequeSequence<int> deque;
+//     deque.PushBack(42);
+    
+//     deque.Sort();
+//     EXPECT_EQ(deque.Get(0), 42);
+// }
+
+// // Student + sort
+// TEST(DequeSequenceTest, Sort_StudentsByLastName) {
+//     PersonID pid1("4509", "111111"), pid2("4509", "222222"), pid3("4509", "333333");
+//     std::string f1 = "Иван", f2 = "Мария", f3 = "Алексей";
+//     std::string m = "Иванович", l1 = "Иванов", l2 = "Сидорова", l3 = "Петров";
+//     std::string s1 = "S1", s2 = "S2", s3 = "S3";
+//     std::string g = "Б25-504";
+    
+//     Student s1_obj(pid1, f1, m, l1, s1, g, 2021);
+//     Student s2_obj(pid2, f2, m, l2, s2, g, 2022);
+//     Student s3_obj(pid3, f3, m, l3, s3, g, 2023);
+    
+//     DequeSequence<Student> students;
+//     students.PushBack(s2_obj); 
+//     students.PushBack(s1_obj); 
+//     students.PushBack(s3_obj);  
+    
+//     auto compareByLastName = [](const Student& a, const Student& b) {
+//         return a.GetFullName() < b.GetFullName();
+//     };
+    
+//     students.Sort(compareByLastName);
+    
+//     EXPECT_EQ(students.Get(0).GetLastName(), "Иванов");
+//     EXPECT_EQ(students.Get(1).GetLastName(), "Петров");
+//     EXPECT_EQ(students.Get(2).GetLastName(), "Сидорова");
+// }
+
+// // Deque комплексные
+// TEST(DequeSequenceTest, MapWhereReduce_Chain) {
+//     int arr[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+//     DequeSequence<int> deque(arr, 10);
+    
+//     auto isEven = [](int x) { return x % 2 == 0; };
+//     auto square = [](int x) { return x * x; };
+//     auto sumFunc = [](int acc, int x) { return acc + x; };
+    
+//     Sequence<int>* filtered = deque.Where(isEven);      
+//     Sequence<int>* squared = filtered->Map(square);    
+//     int result = squared->Reduce(sumFunc, 0);            
+    
+//     EXPECT_EQ(result, 220);
+    
+//     delete filtered;
+//     delete squared;
+// }
+
+
+
