@@ -50,7 +50,7 @@ public:
         return sizeof(T) * 8;
     }
     
-    bool operator[](int index) {
+    bool operator[](int index) const {
         if (index < 0 || index >= sizeof(T) * 8) {
             throw IndexOutOfRangeException();
         }
