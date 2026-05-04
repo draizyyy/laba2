@@ -16,7 +16,7 @@ private:
     };
     Node* head;
     Node* tail;
-    int size;
+    size_t size;
 
     Node* GetElement(int index) {
         Node* curr;

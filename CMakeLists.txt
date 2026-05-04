@@ -19,3 +19,9 @@ target_link_libraries(laba2_tests PRIVATE gtest_main)
 
 add_executable(laba2_app src/main.cpp)
 target_include_directories(laba2_app PRIVATE include)
+
+
+if(MSVC)
+    target_compile_options(laba2_tests PRIVATE /wd4267)
+    target_compile_options(laba2_app PRIVATE /wd4267)
+endif()

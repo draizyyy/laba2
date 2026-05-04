@@ -7,11 +7,11 @@ template<typename T>
 class DynamicArray {
 private:
     T* data;
-    int size;
+    size_t size;
 public:
     DynamicArray(T* items, int count) : size(count) {
         data = new T[size];
-        for (int i = 0; i < size; i++) {
+        for (size_t i = 0; i < size; i++) {
             data[i] = items[i];
         }
     }
@@ -20,7 +20,7 @@ public:
     }
     DynamicArray(const DynamicArray<T>& dynamicArray) : size(dynamicArray.size) {
         data = new T[size];
-        for (int i = 0; i < size; i++) {
+        for (size_t i = 0; i < size; i++) {
             data[i] = dynamicArray.data[i];
         }
     }
@@ -47,8 +47,13 @@ public:
             throw IndexOutOfRangeException();
         }
         T* newData = new T[newSize]();
-        int copyCount = (newSize < size) ? newSize : size;
-        for (int i = 0; i < copyCount; i++) {
+        int copyCount;
+        if (newSize < size) {
+            copyCount = newSize;
+        } else {
+            copyCount = size;
+        }
+        for (size_t i = 0; i < copyCount; i++) {
             newData[i] = data[i];
         }
         delete[] data;

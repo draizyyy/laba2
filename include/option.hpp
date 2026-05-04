@@ -1,5 +1,5 @@
 #pragma once
-#include <exception>
+#include <exceptions.hpp>
 
 namespace myLib {
 
@@ -29,7 +29,7 @@ public:
     bool IsNone() { return !hasValue; }
     
     T GetValue() const {
-        if (!hasValue) throw std::exception();
+        if (!hasValue) throw IndexOutOfRangeException();
         return *value;
     }
     T GetValueOrDefault(T def) { return hasValue ? *value : def; }
