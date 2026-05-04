@@ -27,8 +27,8 @@ public:
     
     bool HasValue() { return hasValue; }
     bool IsNone() { return !hasValue; }
-    
-    T GetValue() const {
+
+    T GetValue() {
         if (!hasValue) throw IndexOutOfRangeException();
         return *value;
     }
