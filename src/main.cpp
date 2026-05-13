@@ -1,328 +1,304 @@
+#include <iostream>
+#include <string>
+#include <sstream>
+#include "httplib.h"
+#include "nlohmann/json.hpp"
+#include "sequences/sequence.hpp"
 #include "core/dynamic_array.hpp"
 #include "core/linked_list.hpp"
+#include "exceptions.hpp"
+#include "option.hpp"
 #include "sequences/array_sequence.hpp"
 #include "sequences/list_sequence.hpp"
 #include "sequences/bit_sequence.hpp"
-#include "option.hpp"
-#include "exceptions.hpp"
 
-#include <iostream>
-#include <string>
-#include <vector>
-#include <map>
-#include <sstream>
-#include <algorithm>
-
+using json = nlohmann::json;
 using namespace myLib;
 
-struct SequenceWrapper {
-    std::string container_type;
-    std::string elem_type;
-    void* ptr;
-};
+static int Square(int x) { return x * x; }
+static bool IsEven(int x) { return x % 2 == 0; }
+static bool IsPositive(int x) { return x > 0; }
+static int SumFunc(int acc, int x) { return acc + x; }
+static int ProdFunc(int acc, int x) { return acc * x; }
+static bool IsDivBy3(int x) { return x % 3 == 0; }
 
-std::map<int, SequenceWrapper> sequences;
-int nextId = 1;
+Sequence<int>* activeIntSeq = nullptr;
+Sequence<double>* activeDoubleSeq = nullptr;
+Sequence<std::string>* activeStringSeq = nullptr;
+BitSequence<uint8_t>* activeBitSeq = nullptr;
+std::string currentSeqType = "";
+std::string currentDataType = "";
 
-std::string trim(const std::string& s) {
-    size_t start = s.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos) return "";
-    return s.substr(start, s.find_last_not_of(" \t\r\n") - start + 1);
+void ClearCurrent() {
+    delete activeIntSeq; activeIntSeq = nullptr;
+    delete activeDoubleSeq; activeDoubleSeq = nullptr;
+    delete activeStringSeq; activeStringSeq = nullptr;
+    delete activeBitSeq; activeBitSeq = nullptr;
 }
 
-std::string escapeJson(const std::string& s) {
-    std::string res;
-    for (char c : s) {
-        if (c == '"') res += "\\\"";
-        else if (c == '\\') res += "\\\\";
-        else res += c;
+json GetAllElements() {
+    json arr = json::array();
+    if (currentDataType == "int" && activeIntSeq) {
+        for (size_t i = 0; i < activeIntSeq->GetLength(); ++i) arr.push_back(activeIntSeq->Get(i));
+    } else if (currentDataType == "double" && activeDoubleSeq) {
+        for (size_t i = 0; i < activeDoubleSeq->GetLength(); ++i) arr.push_back(activeDoubleSeq->Get(i));
+    } else if (currentDataType == "string" && activeStringSeq) {
+        for (size_t i = 0; i < activeStringSeq->GetLength(); ++i) arr.push_back(activeStringSeq->Get(i));
+    } else if (currentDataType == "uint8" && activeBitSeq) {
+        for (size_t i = 0; i < activeBitSeq->GetLength(); ++i) arr.push_back(static_cast<int>(activeBitSeq->Get(i).GetValue()));
     }
-    return res;
+    return arr;
 }
 
-std::vector<std::string> split(const std::string& s, char delim) {
-    std::vector<std::string> res;
-    std::stringstream ss(s);
-    std::string token;
-    while (std::getline(ss, token, delim)) {
-        std::string t = trim(token);
-        if (!t.empty()) res.push_back(t);
+const char* HTML_CONTENT = R"HTML(
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Sequence Web UI</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f4f4f9; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .panel { padding: 15px; border: 1px solid #ddd; margin-bottom: 15px; border-radius: 4px; }
+        select, input, button { padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .output { background: #e9ecef; padding: 10px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; min-height: 20px; margin-bottom: 15px;}
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Sequence Interface</h2>
+    <div class="panel">
+        <select id="seqType">
+            <option value="ArraySequence">ArraySequence</option>
+            <option value="ListSequence">ListSequence</option>
+            <option value="BitSequence">BitSequence</option>
+        </select>
+        <select id="dataType">
+            <option value="int">int</option>
+            <option value="double">double</option>
+            <option value="string">string</option>
+            <option value="uint8">uint8 (for BitSequence)</option>
+        </select>
+        <button onclick="apiCall('create')">Создать последовательность</button>
+    </div>
+    <div class="panel">
+        <input type="text" id="inputValue" placeholder="Значение">
+        <input type="number" id="inputIndex" placeholder="Индекс (опционально)">
+        <div class="grid">
+            <button onclick="apiCall('prepend')">Добавить в начало</button>
+            <button onclick="apiCall('append')">Добавить в конец</button>
+            <button onclick="apiCall('insertAt')">Добавить по индексу</button>
+            <button onclick="apiCall('getLength')">Размер</button>
+            <button onclick="apiCall('getFirst')">Начало</button>
+            <button onclick="apiCall('getLast')">Конец</button>
+            <button onclick="apiCall('get')">По индексу</button>
+        </div>
+    </div>
+    <div class="panel">
+        <select id="predicateFunc">
+            <option value="Square">Square</option>
+            <option value="IsEven">IsEven</option>
+            <option value="IsPositive">IsPositive</option>
+            <option value="SumFunc">SumFunc</option>
+            <option value="ProdFunc">ProdFunc</option>
+            <option value="IsDivBy3">IsDivBy3</option>
+        </select>
+        <div class="grid">
+            <button onclick="apiCall('map')">Map</button>
+            <button onclick="apiCall('reduce')">Reduce</button>
+            <button onclick="apiCall('where')">Where</button>
+            <button onclick="apiCall('getFirstPred')">GetFirst (Pred)</button>
+            <button onclick="apiCall('getLastPred')">GetLast (Pred)</button>
+        </div>
+    </div>
+    <h3>Все элементы (Итератор):</h3>
+    <div id="allElements" class="output">[]</div>
+    <h3>Результат выполнения:</h3>
+    <div id="resultOutput" class="output"></div>
+</div>
+<script>
+async function apiCall(action) {
+    const payload = {
+        action: action,
+        seqType: document.getElementById('seqType').value,
+        dataType: document.getElementById('dataType').value,
+        value: document.getElementById('inputValue').value,
+        index: parseInt(document.getElementById('inputIndex').value) || 0,
+        func: document.getElementById('predicateFunc').value
+    };
+    try {
+        const response = await fetch('/api', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data.status === "error") {
+            document.getElementById('resultOutput').innerText = "Ошибка: " + data.message;
+        } else {
+            document.getElementById('resultOutput').innerText = JSON.stringify(data.result, null, 2);
+            document.getElementById('allElements').innerText = JSON.stringify(data.all, null, 2);
+        }
+    } catch (e) {
+        document.getElementById('resultOutput').innerText = "Сетевая ошибка: " + e;
     }
-    return res;
 }
-
-std::string toJson(int id, Sequence<int>* seq) {
-    std::stringstream ss;
-    ss << "{\"id\":" << id << ",\"length\":" << seq->GetLength() << ",\"items\":[";
-    for (int i = 0; i < seq->GetLength(); ++i) {
-        if (i > 0) ss << ",";
-        ss << seq->Get(i);
-    }
-    ss << "]}";
-    return ss.str();
-}
-
-std::string toJson(int id, Sequence<double>* seq) {
-    std::stringstream ss;
-    ss << "{\"id\":" << id << ",\"length\":" << seq->GetLength() << ",\"items\":[";
-    for (int i = 0; i < seq->GetLength(); ++i) {
-        if (i > 0) ss << ",";
-        ss << seq->Get(i);
-    }
-    ss << "]}";
-    return ss.str();
-}
-
-std::string toJson(int id, Sequence<std::string>* seq) {
-    std::stringstream ss;
-    ss << "{\"id\":" << id << ",\"length\":" << seq->GetLength() << ",\"items\":[";
-    for (int i = 0; i < seq->GetLength(); ++i) {
-        if (i > 0) ss << ",";
-        ss << "\"" << escapeJson(seq->Get(i)) << "\"";
-    }
-    ss << "]}";
-    return ss.str();
-}
-
-std::string toJson(int id, BitSequence<uint8_t>* seq) {
-    std::stringstream ss;
-    ss << "{\"id\":" << id << ",\"length\":" << seq->GetLength() << ",\"items\":[";
-    for (int i = 0; i < seq->GetLength(); ++i) {
-        if (i > 0) ss << ",";
-        ss << static_cast<int>(seq->Get(i).GetValue());
-    }
-    ss << "]}";
-    return ss.str();
-}
+</script>
+</body>
+</html>
+)HTML";
 
 int main() {
-    std::string command;
-    while (std::getline(std::cin, command)) {
+    httplib::Server svr;
+
+    svr.Get("/", [](const httplib::Request&, httplib::Response& res) {
+        res.set_content(HTML_CONTENT, "text/html");
+    });
+
+    svr.Post("/api", [](const httplib::Request& req, httplib::Response& res) {
+        json j = json::parse(req.body);
+        json response;
+        response["status"] = "ok";
+        std::string action = j["action"];
+        std::string seqType = j["seqType"];
+        std::string dataType = j["dataType"];
+        std::string valueStr = j["value"];
+        int index = j["index"];
+        std::string func = j["func"];
+
         try {
-            command = trim(command);
-            if (command.empty()) continue;
-            if (command == "EXIT") break;
-            
-            std::istringstream iss(command);
-            std::string cmd;
-            iss >> cmd;
-            
-            if (cmd == "CREATE") {
-                std::string container, elem_type, itemsStr;
-                iss >> container >> elem_type;
-                std::getline(iss, itemsStr);
-                itemsStr = trim(itemsStr);
-                
-                if (container == "bit") {
-                    elem_type = "bit";
-                    if (itemsStr.empty()) {
-                        BitSequence<uint8_t>* seq = new BitSequence<uint8_t>();
-                        sequences[nextId] = { "bit", "bit", seq };
-                        std::cout << toJson(nextId, seq) << std::endl;
-                        nextId++;
-                        continue;
+            if (action == "create") {
+                ClearCurrent();
+                currentSeqType = seqType;
+                currentDataType = dataType;
+                if (dataType == "int") {
+                    if (seqType == "ArraySequence") activeIntSeq = new ArraySequence<int>();
+                    else if (seqType == "ListSequence") activeIntSeq = new ListSequence<int>();
+                } else if (dataType == "double") {
+                    if (seqType == "ArraySequence") activeDoubleSeq = new ArraySequence<double>();
+                    else if (seqType == "ListSequence") activeDoubleSeq = new ListSequence<double>();
+                } else if (dataType == "string") {
+                    if (seqType == "ArraySequence") activeStringSeq = new ArraySequence<std::string>();
+                    else if (seqType == "ListSequence") activeStringSeq = new ListSequence<std::string>();
+                } else if (dataType == "uint8" && seqType == "BitSequence") {
+                    activeBitSeq = new BitSequence<uint8_t>();
+                }
+                response["result"] = "Created: " + seqType + "<" + dataType + ">";
+            } else {
+                if (action == "append") {
+                    if (currentDataType == "int") activeIntSeq->Append(std::stoi(valueStr));
+                    else if (currentDataType == "double") activeDoubleSeq->Append(std::stod(valueStr));
+                    else if (currentDataType == "string") activeStringSeq->Append(valueStr);
+                    else if (currentDataType == "uint8") activeBitSeq->Append(Bit<uint8_t>(std::stoi(valueStr)));
+                    response["result"] = "Appended";
+                } else if (action == "prepend") {
+                    if (currentDataType == "int") activeIntSeq->Prepend(std::stoi(valueStr));
+                    else if (currentDataType == "double") activeDoubleSeq->Prepend(std::stod(valueStr));
+                    else if (currentDataType == "string") activeStringSeq->Prepend(valueStr);
+                    else if (currentDataType == "uint8") activeBitSeq->Prepend(Bit<uint8_t>(std::stoi(valueStr)));
+                    response["result"] = "Prepended";
+                } else if (action == "insertAt") {
+                    if (currentDataType == "int") activeIntSeq->InsertAt(std::stoi(valueStr), index);
+                    else if (currentDataType == "double") activeDoubleSeq->InsertAt(std::stod(valueStr), index);
+                    else if (currentDataType == "string") activeStringSeq->InsertAt(valueStr, index);
+                    else if (currentDataType == "uint8") activeBitSeq->InsertAt(Bit<uint8_t>(std::stoi(valueStr)), index);
+                    response["result"] = "Inserted";
+                } else if (action == "getLength") {
+                    if (currentDataType == "int") response["result"] = activeIntSeq->GetLength();
+                    else if (currentDataType == "double") response["result"] = activeDoubleSeq->GetLength();
+                    else if (currentDataType == "string") response["result"] = activeStringSeq->GetLength();
+                    else if (currentDataType == "uint8") response["result"] = activeBitSeq->GetLength();
+                } else if (action == "getFirst") {
+                    if (currentDataType == "int") response["result"] = activeIntSeq->GetFirst();
+                    else if (currentDataType == "double") response["result"] = activeDoubleSeq->GetFirst();
+                    else if (currentDataType == "string") response["result"] = activeStringSeq->GetFirst();
+                    else if (currentDataType == "uint8") response["result"] = static_cast<int>(activeBitSeq->GetFirst().GetValue());
+                } else if (action == "getLast") {
+                    if (currentDataType == "int") response["result"] = activeIntSeq->GetLast();
+                    else if (currentDataType == "double") response["result"] = activeDoubleSeq->GetLast();
+                    else if (currentDataType == "string") response["result"] = activeStringSeq->GetLast();
+                    else if (currentDataType == "uint8") response["result"] = static_cast<int>(activeBitSeq->GetLast().GetValue());
+                } else if (action == "get") {
+                    if (currentDataType == "int") response["result"] = activeIntSeq->Get(index);
+                    else if (currentDataType == "double") response["result"] = activeDoubleSeq->Get(index);
+                    else if (currentDataType == "string") response["result"] = activeStringSeq->Get(index);
+                    else if (currentDataType == "uint8") response["result"] = static_cast<int>(activeBitSeq->Get(index).GetValue());
+                } else if (currentDataType == "int") {
+                    if (action == "map") {
+                        json arr = json::array();
+                        if (currentSeqType == "ArraySequence") {
+                            auto* seq = static_cast<ArraySequence<int>*>(activeIntSeq);
+                            Sequence<int>* res = nullptr;
+                            if (func == "Square") res = seq->Map(Square);
+                            if (res) { for (size_t i = 0; i < res->GetLength(); ++i) arr.push_back(res->Get(i)); delete res; }
+                        } else if (currentSeqType == "ListSequence") {
+                            auto* seq = static_cast<ListSequence<int>*>(activeIntSeq);
+                            Sequence<int>* res = nullptr;
+                            if (func == "Square") res = seq->Map(Square);
+                            if (res) { for (size_t i = 0; i < res->GetLength(); ++i) arr.push_back(res->Get(i)); delete res; }
+                        }
+                        response["result"] = arr;
+                    } else if (action == "where") {
+                        json arr = json::array();
+                        Sequence<int>* res = nullptr;
+                        if (currentSeqType == "ArraySequence") {
+                            auto* seq = static_cast<ArraySequence<int>*>(activeIntSeq);
+                            if (func == "IsEven") res = seq->Where(IsEven);
+                            else if (func == "IsPositive") res = seq->Where(IsPositive);
+                            else if (func == "IsDivBy3") res = seq->Where(IsDivBy3);
+                        } else if (currentSeqType == "ListSequence") {
+                            auto* seq = static_cast<ListSequence<int>*>(activeIntSeq);
+                            if (func == "IsEven") res = seq->Where(IsEven);
+                            else if (func == "IsPositive") res = seq->Where(IsPositive);
+                            else if (func == "IsDivBy3") res = seq->Where(IsDivBy3);
+                        }
+                        if (res) { for (size_t i = 0; i < res->GetLength(); ++i) arr.push_back(res->Get(i)); delete res; }
+                        response["result"] = arr;
+                    } else if (action == "reduce") {
+                        int initVal = valueStr.empty() ? 0 : std::stoi(valueStr);
+                        Sequence<int>* res = nullptr;
+                        if (currentSeqType == "ArraySequence") {
+                            auto* seq = static_cast<ArraySequence<int>*>(activeIntSeq);
+                            if (func == "SumFunc") res = seq->Reduce(SumFunc, initVal);
+                            else if (func == "ProdFunc") res = seq->Reduce(ProdFunc, initVal);
+                        } else if (currentSeqType == "ListSequence") {
+                            auto* seq = static_cast<ListSequence<int>*>(activeIntSeq);
+                            if (func == "SumFunc") res = seq->Reduce(SumFunc, initVal);
+                            else if (func == "ProdFunc") res = seq->Reduce(ProdFunc, initVal);
+                        }
+                        if (res) { response["result"] = res->GetFirst(); delete res; }
+                    } else if (action == "getFirstPred" || action == "getLastPred") {
+                        bool (*pred)(int) = nullptr;
+                        if (func == "IsEven") pred = IsEven;
+                        else if (func == "IsPositive") pred = IsPositive;
+                        else if (func == "IsDivBy3") pred = IsDivBy3;
+                        if (currentSeqType == "ArraySequence") {
+                            auto* seq = static_cast<ArraySequence<int>*>(activeIntSeq);
+                            auto opt = action == "getFirstPred" ? seq->GetFirst(pred) : seq->GetLast(pred);
+                            if (opt.HasValue()) response["result"] = opt.GetValue();
+                            else response["result"] = "Not found";
+                        } else if (currentSeqType == "ListSequence") {
+                            auto* seq = static_cast<ListSequence<int>*>(activeIntSeq);
+                            auto opt = action == "getFirstPred" ? seq->GetFirst(pred) : seq->GetLast(pred);
+                            if (opt.HasValue()) response["result"] = opt.GetValue();
+                            else response["result"] = "Not found";
+                        }
                     }
-                    auto parts = split(itemsStr, ',');
-                    std::vector<int> items;
-                    for (auto& p : parts) items.push_back(std::stoi(p));
-                    Bit<uint8_t>* bits = new Bit<uint8_t>[items.size()];
-                    for (size_t i = 0; i < items.size(); ++i) bits[i] = Bit<uint8_t>(static_cast<uint8_t>(items[i]));
-                    BitSequence<uint8_t>* seq = new BitSequence<uint8_t>(bits, static_cast<int>(items.size()));
-                    delete[] bits;
-                    sequences[nextId] = { "bit", "bit", seq };
-                    std::cout << toJson(nextId, seq) << std::endl;
-                    nextId++;
-                    continue;
-                }
-                
-                if (itemsStr.empty()) {
-                    if (elem_type == "int") {
-                        void* seq = (container == "array") ? static_cast<void*>(new ArraySequence<int>()) : static_cast<void*>(new ListSequence<int>());
-                        sequences[nextId] = { container, "int", seq };
-                        std::cout << toJson(nextId, static_cast<Sequence<int>*>(seq)) << std::endl;
-                    } else if (elem_type == "double") {
-                        void* seq = (container == "array") ? static_cast<void*>(new ArraySequence<double>()) : static_cast<void*>(new ListSequence<double>());
-                        sequences[nextId] = { container, "double", seq };
-                        std::cout << toJson(nextId, static_cast<Sequence<double>*>(seq)) << std::endl;
-                    } else if (elem_type == "string") {
-                        void* seq = (container == "array") ? static_cast<void*>(new ArraySequence<std::string>()) : static_cast<void*>(new ListSequence<std::string>());
-                        sequences[nextId] = { container, "string", seq };
-                        std::cout << toJson(nextId, static_cast<Sequence<std::string>*>(seq)) << std::endl;
-                    } else {
-                        std::cout << "{\"error\":\"Неизвестный тип элементов\"}" << std::endl;
-                        continue;
-                    }
-                    nextId++;
-                    continue;
-                }
-                
-                auto parts = split(itemsStr, ',');
-                
-                if (elem_type == "int") {
-                    std::vector<int> items;
-                    for (auto& p : parts) items.push_back(std::stoi(p));
-                    void* seq = (container == "array") ? static_cast<void*>(new ArraySequence<int>(items.data(), static_cast<int>(items.size()))) : static_cast<void*>(new ListSequence<int>(items.data(), static_cast<int>(items.size())));
-                    sequences[nextId] = { container, "int", seq };
-                    std::cout << toJson(nextId, static_cast<Sequence<int>*>(seq)) << std::endl;
-                }
-                else if (elem_type == "double") {
-                    std::vector<double> items;
-                    for (auto& p : parts) items.push_back(std::stod(p));
-                    void* seq = (container == "array") ? static_cast<void*>(new ArraySequence<double>(items.data(), static_cast<int>(items.size()))) : static_cast<void*>(new ListSequence<double>(items.data(), static_cast<int>(items.size())));
-                    sequences[nextId] = { container, "double", seq };
-                    std::cout << toJson(nextId, static_cast<Sequence<double>*>(seq)) << std::endl;
-                }
-                else if (elem_type == "string") {
-                    std::vector<std::string> items = parts;
-                    void* seq = (container == "array") ? static_cast<void*>(new ArraySequence<std::string>(items.data(), static_cast<int>(items.size()))) : static_cast<void*>(new ListSequence<std::string>(items.data(), static_cast<int>(items.size())));
-                    sequences[nextId] = { container, "string", seq };
-                    std::cout << toJson(nextId, static_cast<Sequence<std::string>*>(seq)) << std::endl;
-                }
-                else {
-                    std::cout << "{\"error\":\"Неизвестный тип элементов\"}" << std::endl;
-                    continue;
-                }
-                nextId++;
-            }
-            
-            else if (cmd == "APPEND" || cmd == "PREPEND" || cmd == "INSERTAT") {
-                int id; iss >> id;
-                if (sequences.find(id) == sequences.end()) { std::cout << "{\"error\":\"Последовательность не найдена\"}" << std::endl; continue; }
-                auto& w = sequences[id];
-                
-                if (w.container_type == "bit") {
-                    int val; iss >> val;
-                    auto* seq = static_cast<BitSequence<uint8_t>*>(w.ptr);
-                    Bit<uint8_t> b(static_cast<uint8_t>(val));
-                    if (cmd == "APPEND") seq->Append(b);
-                    else if (cmd == "PREPEND") seq->Prepend(b);
-                    else { int idx; iss >> idx; seq->InsertAt(b, idx); }
-                    std::cout << toJson(id, seq) << std::endl;
-                    continue;
-                }
-                
-                std::string valStr;
-                int idx = -1;
-                if (cmd == "INSERTAT") {
-                    iss >> idx;
-                    std::getline(iss, valStr);
                 } else {
-                    std::getline(iss, valStr);
-                }
-                valStr = trim(valStr);
-                
-                if (valStr.empty() && w.elem_type != "string") {
-                    std::cout << "{\"error\":\"Пустое значение для числового типа\"}" << std::endl;
-                    continue;
-                }
-                
-                if (w.elem_type == "int") {
-                    auto* seq = static_cast<Sequence<int>*>(w.ptr);
-                    int val = std::stoi(valStr);
-                    if (cmd == "APPEND") seq->Append(val);
-                    else if (cmd == "PREPEND") seq->Prepend(val);
-                    else seq->InsertAt(val, idx);
-                    std::cout << toJson(id, seq) << std::endl;
-                } else if (w.elem_type == "double") {
-                    auto* seq = static_cast<Sequence<double>*>(w.ptr);
-                    double val = std::stod(valStr);
-                    if (cmd == "APPEND") seq->Append(val);
-                    else if (cmd == "PREPEND") seq->Prepend(val);
-                    else seq->InsertAt(val, idx);
-                    std::cout << toJson(id, seq) << std::endl;
-                } else if (w.elem_type == "string") {
-                    auto* seq = static_cast<Sequence<std::string>*>(w.ptr);
-                    if (cmd == "APPEND") seq->Append(valStr);
-                    else if (cmd == "PREPEND") seq->Prepend(valStr);
-                    else seq->InsertAt(valStr, idx);
-                    std::cout << toJson(id, seq) << std::endl;
+                    response["result"] = "Predicates not supported for this type in demo";
                 }
             }
-            
-            else if (cmd == "GET" || cmd == "GETFIRST" || cmd == "GETLAST") {
-                int id; iss >> id;
-                if (sequences.find(id) == sequences.end()) { std::cout << "{\"error\":\"Последовательность не найдена\"}" << std::endl; continue; }
-                auto& w = sequences[id];
-                
-                if (w.container_type == "bit") {
-                    auto* seq = static_cast<BitSequence<uint8_t>*>(w.ptr);
-                    try {
-                        int res = 0;
-                        if (cmd == "GET") { int idx; iss >> idx; res = static_cast<int>(seq->Get(idx).GetValue()); }
-                        else if (cmd == "GETFIRST") res = static_cast<int>(seq->GetFirst().GetValue());
-                        else res = static_cast<int>(seq->GetLast().GetValue());
-                        std::cout << "{\"result\":" << res << "}" << std::endl;
-                    } catch (...) { std::cout << "{\"error\":\"Индекс выходит за границы или последовательность пуста\"}" << std::endl; }
-                    continue;
-                }
-                
-                if (w.elem_type == "string") {
-                    auto* seq = static_cast<Sequence<std::string>*>(w.ptr);
-                    try {
-                        std::string res;
-                        if (cmd == "GET") { int idx; iss >> idx; res = seq->Get(idx); }
-                        else if (cmd == "GETFIRST") res = seq->GetFirst();
-                        else res = seq->GetLast();
-                        std::cout << "{\"result\":\"" << escapeJson(res) << "\"}" << std::endl;
-                    } catch (...) { std::cout << "{\"error\":\"Индекс выходит за границы или последовательность пуста\"}" << std::endl; }
-                } else if (w.elem_type == "int") {
-                    auto* seq = static_cast<Sequence<int>*>(w.ptr);
-                    try {
-                        if (cmd == "GET") { int idx; iss >> idx; std::cout << "{\"result\":" << seq->Get(idx) << "}" << std::endl; }
-                        else if (cmd == "GETFIRST") std::cout << "{\"result\":" << seq->GetFirst() << "}" << std::endl;
-                        else std::cout << "{\"result\":" << seq->GetLast() << "}" << std::endl;
-                    } catch (...) { std::cout << "{\"error\":\"Индекс выходит за границы или последовательность пуста\"}" << std::endl; }
-                } else if (w.elem_type == "double") {
-                    auto* seq = static_cast<Sequence<double>*>(w.ptr);
-                    try {
-                        if (cmd == "GET") { int idx; iss >> idx; std::cout << "{\"result\":" << seq->Get(idx) << "}" << std::endl; }
-                        else if (cmd == "GETFIRST") std::cout << "{\"result\":" << seq->GetFirst() << "}" << std::endl;
-                        else std::cout << "{\"result\":" << seq->GetLast() << "}" << std::endl;
-                    } catch (...) { std::cout << "{\"error\":\"Индекс выходит за границы или последовательность пуста\"}" << std::endl; }
-                }
-            }
-            
-            else if (cmd == "SHOW") {
-                int id; iss >> id;
-                if (sequences.find(id) == sequences.end()) { std::cout << "{\"error\":\"Последовательность не найдена\"}" << std::endl; continue; }
-                auto& w = sequences[id];
-                
-                if (w.container_type == "bit") {
-                    std::cout << toJson(id, static_cast<BitSequence<uint8_t>*>(w.ptr)) << std::endl;
-                } else if (w.elem_type == "int") {
-                    std::cout << toJson(id, static_cast<Sequence<int>*>(w.ptr)) << std::endl;
-                } else if (w.elem_type == "double") {
-                    std::cout << toJson(id, static_cast<Sequence<double>*>(w.ptr)) << std::endl;
-                } else if (w.elem_type == "string") {
-                    std::cout << toJson(id, static_cast<Sequence<std::string>*>(w.ptr)) << std::endl;
-                }
-            }
-            
-            else {
-                std::cout << "{\"error\":\"Неизвестная команда\"}" << std::endl;
-            }
+        } catch (const std::exception& e) {
+            response["status"] = "error";
+            response["message"] = e.what();
         }
-        catch (const std::exception&) {
-            std::cout << "{\"error\":\"Неверный индекс или формат данных\"}" << std::endl;
-        }
-        catch (...) {
-            std::cout << "{\"error\":\"Неизвестная ошибка\"}" << std::endl;
-        }
-    }
-    
-    for (auto& [id, w] : sequences) {
-        if (w.elem_type == "int") {
-            if (w.container_type == "array") delete static_cast<ArraySequence<int>*>(w.ptr);
-            else delete static_cast<ListSequence<int>*>(w.ptr);
-        } else if (w.elem_type == "double") {
-            if (w.container_type == "array") delete static_cast<ArraySequence<double>*>(w.ptr);
-            else delete static_cast<ListSequence<double>*>(w.ptr);
-        } else if (w.elem_type == "string") {
-            if (w.container_type == "array") delete static_cast<ArraySequence<std::string>*>(w.ptr);
-            else delete static_cast<ListSequence<std::string>*>(w.ptr);
-        } else if (w.elem_type == "bit") {
-            delete static_cast<BitSequence<uint8_t>*>(w.ptr);
-        }
-    }
+        response["all"] = GetAllElements();
+        res.set_content(response.dump(), "application/json");
+    });
+
+    svr.listen("0.0.0.0", 8080);
     return 0;
 }

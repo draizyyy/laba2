@@ -10,10 +10,9 @@ template <typename T>
 class BitProxy {
 private:
     T& num;
-    int bitIndex;
-
+    size_t bitIndex;
 public:
-    BitProxy(T& value, int index) : num(value), bitIndex(index) {}
+    BitProxy(T& value, size_t index) : num(value), bitIndex(index) {}
     
     BitProxy& operator=(bool value) {
         if (value) {
@@ -32,39 +31,39 @@ public:
 template <typename T>
 class Bit {
 private:
-    T value;
+    T value{};
 
 public:
-    Bit() : value(0) {}
+    Bit() = default;
     Bit(T val) : value(val) {}
     Bit(const Bit& other) : value(other.value) {}
     
-    Bit& operator=(Bit& other) {
+    Bit& operator=(const Bit& other) {
         if (this != &other) {
             value = other.value;
         }
         return *this;
     }
-    
-    static int BitCount() {
+        
+    static size_t BitCount() {
         return sizeof(T) * 8;
     }
     
-    bool operator[](int index) const {
-        if (index < 0 || index >= sizeof(T) * 8) {
-            throw IndexOutOfRangeException();
+    bool operator[](size_t index) const {
+        if (index >= BitCount()) {
+            throw IndexOutOfRangeException(index, index-1);
         }
         return (value >> index) & static_cast<T>(1);
     }
     
-    BitProxy<T> operator[](int index) {
-        if (index < 0 || index >= sizeof(T) * 8) {
-            throw IndexOutOfRangeException();
+    BitProxy<T> operator[](size_t index) {
+        if (index >= BitCount()) {
+            throw IndexOutOfRangeException(index, index-1);
         }
         return BitProxy<T>(value, index);
     }
     
-    T GetValue() {
+    T GetValue() const {
         return value;
     }
     
@@ -101,22 +100,59 @@ public:
     }
 };
 
+template <typename T> class BitSequence;
+
+template <typename T>
+class BitSequenceProxy {
+private:
+    BitSequence<T>* seq;
+    size_t index;
+    
+public:
+    BitSequenceProxy(BitSequence<T>* s, size_t Index) : seq(s), index(Index) {}
+
+    BitSequenceProxy& operator=(bool value) {
+        seq->SetBit(index, value);
+        return *this;
+    }
+
+    BitSequenceProxy& operator=(int value) {
+        seq->SetBit(index, static_cast<bool>(value));
+        return *this;
+    }
+
+    operator bool() const {
+        return seq->GetBit(index);
+    }
+};
+
 template <typename T>
 class BitSequence : public Sequence<Bit<T>> {
 private:
     DynamicArray<Bit<T>>* data;
+    friend class BitSequenceProxy<T>;
+
+    void SetBit(size_t index, bool value) {
+        size_t elemIndex = index / Bit<T>::BitCount();
+        size_t offset = index % Bit<T>::BitCount();
+        Bit<T> elem = data->Get(elemIndex);
+        elem[offset] = value;
+        data->Set(elemIndex, elem);
+    }
+    bool GetBit(size_t index) const {
+        size_t elemIndex = index / Bit<T>::BitCount();
+        size_t offset = index % Bit<T>::BitCount();
+        return data->Get(elemIndex)[offset];
+    }
 
 public:
-    BitSequence() : data(new DynamicArray<Bit<T>>(0)) {}
+    BitSequence() : data(new DynamicArray<Bit<T>>()) {}
     
-    BitSequence(Bit<T>* items, int count) : data(new DynamicArray<Bit<T>>(items, count)) {}
+    BitSequence(Bit<T>* items, size_t count) : data(new DynamicArray<Bit<T>>(items, count)) {}
+
+    BitSequence(const DynamicArray<Bit<T>>& arr) : data(new DynamicArray<Bit<T>>(arr)) {}
     
-    BitSequence(const BitSequence& other) : data(new DynamicArray<Bit<T>>(0)) {
-        data->Resize(other.data->GetSize());
-        for (int i = 0; i < other.data->GetSize(); i++) {
-            data->Set(i, other.data->Get(i));
-        }
-    }
+    BitSequence(const BitSequence& other) : data(new DynamicArray<Bit<T>>(*other.data)) {}
     
     ~BitSequence() override {
         delete data;
@@ -125,185 +161,167 @@ public:
     BitSequence& operator=(const BitSequence& other) {
         if (this != &other) {
             delete data;
-            data = new DynamicArray<Bit<T>>(0);
-            data->Resize(other.data->GetSize());
-            for (int i = 0; i < other.data->GetSize(); i++) {
-                data->Set(i, other.data->Get(i));
-            }
+            data = new DynamicArray<Bit<T>>(*other.data);
         }
         return *this;
     }
     
     Bit<T> GetFirst() override {
         if (data->GetSize() == 0) {
-            throw IndexOutOfRangeException();
+            throw EmptyCollectionException("BitSequence");
         }
         return data->Get(0);
     }
     
     Bit<T> GetLast() override {
         if (data->GetSize() == 0) {
-            throw IndexOutOfRangeException();
+            throw EmptyCollectionException("BitSequence");
         }
         return data->Get(data->GetSize() - 1);
     }
     
-    Bit<T> Get(int index) override {
-        if (index < 0 || index >= data->GetSize()) {
-            throw IndexOutOfRangeException();
+    Bit<T> Get(size_t index) override {
+        if (index >= data->GetSize()) {
+            throw IndexOutOfRangeException(index, data->GetSize());
         }
         return data->Get(index);
     }
     
-    int GetLength() override {
+    size_t GetLength() override {
         return data->GetSize();
     }
-    
-    Bit<T> operator[](int index) { 
-        if (index < 0 || index >= data->GetSize()) {
-            throw IndexOutOfRangeException();
+
+    BitSequenceProxy<T> operator[](size_t index) { 
+        size_t totalBits = data->GetSize() * Bit<T>::BitCount();
+        if (index >= totalBits) {
+            throw IndexOutOfRangeException(index, totalBits);
         }
-        return data->Get(index); 
+        return BitSequenceProxy<T>(this, index);
     }
-    
-    Sequence<Bit<T>>* GetSubsequence(int startIndex, int endIndex) override {
-        if (startIndex < 0 || endIndex >= data->GetSize() || startIndex > endIndex) {
-            throw IndexOutOfRangeException();
+
+    bool operator[](size_t index) const {
+        size_t totalBits = data->GetSize() * Bit<T>::BitCount();
+        if (index >= totalBits) {
+            throw IndexOutOfRangeException(index, totalBits);
+        }
+        return GetBit(index);
+    }
+
+    Sequence<Bit<T>>* GetSubsequence(size_t startIndex, size_t endIndex) override {
+        if (startIndex > endIndex) {
+            throw IndexOutOfRangeException(startIndex, endIndex);
+        }
+        if (endIndex > data->GetSize()) {
+            throw IndexOutOfRangeException(endIndex, data->GetSize());
+        }
+        if (startIndex == endIndex) {
+            return new BitSequence<T>();
         }
         
-        int len = endIndex - startIndex + 1;
-        Bit<T>* items = new Bit<T>[len];
-        
-        for (int i = 0; i < len; i++) {
-            items[i] = data->Get(startIndex + i);
-        }
-        
-        Sequence<Bit<T>>* result = new BitSequence<T>(items, len);
-        delete[] items;
-        return result;
+        DynamicArray<Bit<T>>* sub = data->SubArray(startIndex, endIndex + 1);
+        Sequence<Bit<T>>* res = new BitSequence<T>(*sub);
+        delete sub;
+        return res;
     }
     
     Sequence<Bit<T>>* Append(Bit<T> item) override {
-        data->Resize(data->GetSize() + 1);
-        data->Set(data->GetSize() - 1, item);
+        data->InsertAt(item, data->GetSize());
         return this;
     }
     
     Sequence<Bit<T>>* Prepend(Bit<T> item) override {
-        int oldSize = data->GetSize();
-        data->Resize(oldSize + 1);
-        for (int i = oldSize; i > 0; i--) {
-            data->Set(i, data->Get(i - 1));
-        }
-        data->Set(0, item);
+        data->InsertAt(item, 0);
         return this;
     }
     
-    Sequence<Bit<T>>* InsertAt(Bit<T> item, int index) override {
-        if (index < 0 || index > data->GetSize()) {
-            throw IndexOutOfRangeException();
-        }
-        int oldSize = data->GetSize();
-        data->Resize(oldSize + 1);
-        for (int i = oldSize; i > index; i--) {
-            data->Set(i, data->Get(i - 1));
-        }
-        data->Set(index, item);
+    Sequence<Bit<T>>* InsertAt(Bit<T> item, size_t index) override {
+        data->InsertAt(item, index);
         return this;
     }
     
     Sequence<Bit<T>>* Concat(Sequence<Bit<T>>* list) override {
-        int len = data->GetSize() + list->GetLength();
-        Bit<T>* t = new Bit<T>[len];
-        
-        for (int i = 0; i < data->GetSize(); i++) {
-            t[i] = data->Get(i);
-        }
-        for (int i = 0; i < list->GetLength(); i++) {
-            t[data->GetSize() + i] = list->Get(i);
-        }
-
-        Sequence<Bit<T>>* seq = new BitSequence<T>(t, len);
-        delete[] t;
-        return seq;
+        auto other = static_cast<BitSequence<T>*>(list);
+        DynamicArray<Bit<T>>* bitArray = data->Concat(other->data);
+        Sequence<Bit<T>>* res = new BitSequence<T>(*bitArray);
+        delete bitArray;
+        return res;
     }
     
-    IEnumerator<Bit<T>>* GetEnumerator() override {
-        return new ArrayEnumerator<Bit<T>>(data);
-    }
+    auto begin() const { return data->begin(); }
+    auto end()   const { return data->end(); }
     
     template <typename T2>
-    BitSequence<T2>* Map(Bit<T2> (*func)(Bit<T>)) {
-        BitSequence<T2>* t = new BitSequence<T2>();
-        t->data->Resize(data->GetSize());
-        for (int i = 0; i < data->GetSize(); i++) {
-            t->data->Set(i, func(data->Get(i)));
+    Sequence<T2>* Map(T2 (*func)(Bit<T>)) {
+        ArraySequence<T2>* res = new ArraySequence<T2>();
+        for (size_t i = 0; i < data->GetSize(); i++) {
+            res->Append(func(data->Get(i)));
         }
-        return t;
+        return res;
     }
-    
-    BitSequence<T>* Where(bool (*predicate)(Bit<T>)) {
-        BitSequence<T>* t = new BitSequence<T>();
-        for (int i = 0; i < data->GetSize(); i++) {
-            if (predicate(data->Get(i))) {
-                t->Append(data->Get(i));
+
+    Sequence<Bit<T>>* Where(bool (*predicate)(Bit<T>)) {
+        ListSequence<Bit<T>>* res = new ListSequence<Bit<T>>();
+        for (size_t i = 0; i < data->GetSize(); i++) {
+            Bit<T> val = data->Get(i);
+            if (predicate(val)) {
+                res->Append(val);
             }
         }
-        return t;
+        return res;
     }
     
     template<typename T2>
-    T2 Reduce(T2 (*func)(T2, Bit<T>), T2 t2) {
-        T2 t = t2;
-        for (int i = 0; i < data->GetSize(); i++) {
-            t = func(t, data->Get(i));
+    T2 Reduce(T2 (*func)(T2, Bit<T>), T2 init) {
+        T2 acc = init;
+        for (size_t i = 0; i < data->GetSize(); i++) {
+            acc = func(acc, data->Get(i));
         }
-        return t;
+        return acc;
     }
     
-    BitSequence<T> operator&(const BitSequence<T>& other) {
+    BitSequence<T> operator&(const BitSequence<T>& other) const {
         if (data->GetSize() != other.data->GetSize()) {
-            throw IndexOutOfRangeException();
+            throw IndexOutOfRangeException(data->GetSize(), other.data->GetSize());
         }
-        BitSequence<T> t;
-        t.data->Resize(data->GetSize());
-        for (int i = 0; i < data->GetSize(); i++) {
-            t.data->Set(i, data->Get(i) & other.data->Get(i));
+        BitSequence<T> res;
+        res.data->Resize(data->GetSize());
+        for (size_t i = 0; i < data->GetSize(); i++) {
+            res.data->Set(i, data->Get(i) & other.data->Get(i));
         }
-        return t;
+        return res;
     }
     
-    BitSequence<T> operator|(const BitSequence<T>& other) {
+    BitSequence<T> operator|(const BitSequence<T>& other) const {
         if (data->GetSize() != other.data->GetSize()) {
-            throw IndexOutOfRangeException();
+            throw IndexOutOfRangeException(data->GetSize(), other.data->GetSize());
         }
-        BitSequence<T> t;
-        t.data->Resize(data->GetSize());
-        for (int i = 0; i < data->GetSize(); i++) {
-            t.data->Set(i, data->Get(i) | other.data->Get(i));
+        BitSequence<T> res;
+        res.data->Resize(data->GetSize());
+        for (size_t i = 0; i < data->GetSize(); i++) {
+            res.data->Set(i, data->Get(i) | other.data->Get(i));
         }
-        return t;
+        return res;
     }
     
-    BitSequence<T> operator^(const BitSequence<T>& other) {
+    BitSequence<T> operator^(const BitSequence<T>& other) const {
         if (data->GetSize() != other.data->GetSize()) {
-            throw IndexOutOfRangeException();
+            throw IndexOutOfRangeException(data->GetSize(), other.data->GetSize());
         }
-        BitSequence<T> t;
-        t.data->Resize(data->GetSize());
-        for (int i = 0; i < data->GetSize(); i++) {
-            t.data->Set(i, data->Get(i) ^ other.data->Get(i));
+        BitSequence<T> res;
+        res.data->Resize(data->GetSize());
+        for (size_t i = 0; i < data->GetSize(); i++) {
+            res.data->Set(i, data->Get(i) ^ other.data->Get(i));
         }
-        return t;
+        return res;
     }
     
-    BitSequence<T> operator~() {
-        BitSequence<T> t;
-        t.data->Resize(data->GetSize());
-        for (int i = 0; i < data->GetSize(); i++) {
-            t.data->Set(i, ~data->Get(i));
+    BitSequence<T> operator~() const {
+        BitSequence<T> res;
+        res.data->Resize(data->GetSize());
+        for (size_t i = 0; i < data->GetSize(); i++) {
+            res.data->Set(i, ~data->Get(i));
         }
-        return t;
+        return res;
     }
 };
 

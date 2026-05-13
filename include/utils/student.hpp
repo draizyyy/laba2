@@ -1,41 +1,41 @@
-#pragma once
-#include "person.hpp"
-#include <string>
+// #pragma once
+// #include "person.hpp"
+// #include <string>
 
-using namespace std;
+// using namespace std;
 
-namespace myLib {
+// namespace myLib {
 
-class Student : public Person {
-private:
-    string studentId;
-    string group;
-    int yearOfEntry;
+// class Student : public Person {
+// private:
+//     const string studentId;
+//     string group;
+//     const unsigned short yearOfEntry;
 
-public:
-    Student() : Person(), yearOfEntry(0) {}
+// public:
+//     Student() : Person(), yearOfEntry(0) {}
     
-    Student(PersonID& personId, string& first, string& middle, string& last, const string& studentId, const string& group, int yearOfEntry)
-        : Person(personId, first, middle, last), studentId(studentId), group(group), yearOfEntry(yearOfEntry) {}
+//     Student(const PersonID& personId, const string& first, string& middle, string& last, const string& studentId, const string& group, int yearOfEntry)
+//         : Person(personId, first, middle, last), studentId(studentId), group(group), yearOfEntry(yearOfEntry) {}
     
-    string GetStudentId() { 
-        return studentId; 
-    }
-    string GetGroup() {
-         return group; 
-    }
-    int GetYearOfEntry() {
-         return yearOfEntry; 
-    }
+//     string GetStudentId() { 
+//         return studentId; 
+//     }
+//     string GetGroup() {
+//         return group; 
+//     }
+//     unsigned short GetYearOfEntry() {
+//         return yearOfEntry; 
+//     }
     
-    int GetCourse(int currentYear) {
-        int course = currentYear - yearOfEntry;
-        if (course >= 1 && course <= 4) {
-            return course;
-        } else {
-            return -1;
-        }
-    }
-};
+//     int GetCourse(unsigned short currentYear) {
+//         int course = currentYear - yearOfEntry;
+//         if (course >= 1 && course <= 4) {
+//             return course;
+//         } else {
+//             return -1;
+//         }
+//     }
+// };
 
-}
+// }

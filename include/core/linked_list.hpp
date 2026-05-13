@@ -1,51 +1,95 @@
 #pragma once
 #include "exceptions.hpp"
+#include <iterator>
 
 namespace myLib {
-
+    
 template<typename T>
 class LinkedList {
 private:
     struct Node {
-        T value;
-        Node* prev;
-        Node* next;
+        T value{};
+        Node* prev{};
+        Node* next{};
+        Node() = default;
+        Node(T value) : value(value) {}
         Node(T value, Node* prev, Node* next) : value(value), prev(prev), next(next) {}
-        Node(T value) : value(value), prev(nullptr), next(nullptr) {}
-        Node() : value(nullptr), prev(nullptr), next(nullptr) {}
     };
-    Node* head;
-    Node* tail;
-    size_t size;
+    Node* head{};
+    Node* tail{};
 
-    Node* GetElement(int index) {
-        Node* curr;
-        if (index < (size / 2)) {
-            curr = head;
-            for (size_t i = 0; i < index; i++) {
-                curr = curr->next;
+    Node* GetElement(size_t index) {     
+        if (!head) {
+            throw EmptyCollectionException("LinkedList");
+        }
+        Node* curr = head;
+        for (size_t i = 0; i < index; i++) {
+            if (!curr) {
+                throw IndexOutOfRangeException(index, i-1);
             }
-        } else {
-            curr = tail;
-            for (size_t i = size - 1; i > index; i--) {
-                curr = curr->prev;
-            }
+            curr = curr->next;
         }
         return curr;
     }
 
-
 public:
-    LinkedList(T* items, int count) : LinkedList() {
-        if (!items || count <= 0) {
-            throw IndexOutOfRangeException();
+    class Iterator {
+    private:
+        Node* current;
+
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+        using pointer = T*;
+        using reference = T&;
+
+        explicit Iterator(Node* node) : current(node) {}
+
+        Iterator& operator++() { 
+            if (current) current = current->next; 
+            return *this; 
+        }
+        Iterator operator++(int) { 
+            Iterator iter = *this; 
+            if (current) {
+                current = current->next; 
+            }
+            return iter; 
+        }
+        T& operator*() { 
+            return current->value; 
+        }
+        T* operator->() { 
+            return &current->value; 
+        }
+
+        bool operator==(const Iterator& other) const { 
+            return current == other.current;
+        }
+        bool operator!=(const Iterator& other) const { 
+            return !(*this == other); 
+        }
+    };
+
+    Iterator begin() { 
+        return Iterator(head);
+    }
+    Iterator end() { 
+        return Iterator(nullptr); 
+    }
+
+
+    LinkedList() = default;
+    LinkedList(T* items, size_t count) : LinkedList() {
+        if (!items) {
+            throw EmptyCollectionException("items");
         }
         for (size_t i = 0; i < count; i++) {
-            this->Append(items[i]);
+            Append(items[i]);
         }
     }
-    LinkedList() : head(nullptr), tail(nullptr), size(0) {}
-    LinkedList (const LinkedList <T> & list) : LinkedList() {
+    LinkedList(const LinkedList<T>& list) : LinkedList() {
         Node* curr = list.head;
         while (curr) {
             Append(curr->value);
@@ -53,58 +97,78 @@ public:
         }
     }
 
-    ~LinkedList() {
-        Node* curr = head;
-        for (size_t i = 0; i < size; i++) {
-            Node* next = curr->next;
-            delete curr;
-            curr = next;
+    ~LinkedList() {  
+        while(head != nullptr) {
+            Node* node = head;      
+            head = head->next;    
+            delete node;            
         }
     }
     
     T GetFirst() {
-        if (size == 0) {
-            throw IndexOutOfRangeException();
+        if (!head) {
+            throw EmptyCollectionException("LinkedList");
         }
         return head->value;
     }
 
     T GetLast() {
-        if (size == 0) {
-            throw IndexOutOfRangeException();
+        if (!head) {
+            throw EmptyCollectionException("LinkedList");
         }
         return tail->value;
     }
 
-    T Get(int index) {
-        if (index < 0 || index >= size) {
-            throw IndexOutOfRangeException();
+    T Get(size_t index) {
+        if (index == 0) {
+            return GetFirst();
         }
-        return GetElement(index)->value;
+        if (!head) {
+            throw EmptyCollectionException("LinkedList");
+        }
+        size_t i = 0;
+        for (auto& el : *this) {
+            if (i == index) {
+                return el;
+            }
+            i++;
+        }
+        throw IndexOutOfRangeException(index, i-1);
     }
 
-    LinkedList<T>* GetSubList(int startIndex, int endIndex) {
-        if (startIndex < 0 || startIndex >= size || endIndex < 0 || endIndex >= size || startIndex > endIndex) {
-            throw IndexOutOfRangeException();
+    LinkedList<T>* GetSubList(size_t startIndex, size_t endIndex) {
+        if (startIndex > endIndex) {
+            throw IndexOutOfRangeException(startIndex, startIndex-1);
         }
-        LinkedList<T>* list = new LinkedList();
-        Node* curr = GetElement(startIndex);
-        for (size_t i = startIndex; i <= endIndex; i++) {
-            list->Append(curr->value);
-            curr = curr->next;
+        if (!head) {
+            throw EmptyCollectionException("LinkedList");
         }
-        return list;
-    }
+        if (startIndex == endIndex) {
+            return new LinkedList<T>();
+        }
 
-    int GetLength() {
-        return size;
-    }
+        LinkedList<T>* sublist = new LinkedList<T>();
+        size_t index = 0;
+        for (auto& el : *this) {
+            if (index >= startIndex && index < endIndex) {
+                sublist->Append(el);
+            }
+            index++;
+            if (index >= endIndex) {
+                break;
+            }
+        }
+        
+        if (index < endIndex) {
+            throw IndexOutOfRangeException(endIndex, endIndex-1);
+        }
 
+        return sublist;
+    }
 
     void Append(T item) {
         Node* node = new Node(item);
-
-        if (size == 0) {
+        if (!head) {
             head = node;
             tail = node;
         } else {
@@ -112,13 +176,11 @@ public:
             node->prev = tail;
             tail = node;
         }
-        size++;
     }
     
     void Prepend(T item) {
         Node* node = new Node(item);
-
-        if (size == 0) {
+        if (!head) {
             head = node;
             tail = node;
         } else {
@@ -126,41 +188,45 @@ public:
             node->next = head;
             head = node;
         }
-        size++;
     }
 
-    void InsertAt(T item, int index) {
-        if (index < 0 || index > size) {
-            throw IndexOutOfRangeException();
+    void InsertAt(T item, size_t index) {
+        if (index == 0) {
+            Prepend(item);
+            return;
+        }
+        if (!head) {
+            throw IndexOutOfRangeException(index, 0);
         }
 
-        if (size == 0 || index == size) {
-            Append(item);
-        } else if (index == 0) {
-            Prepend(item);
-        } else {
-            Node* node = new Node(item);
-            Node* curr = GetElement(index);
-            
-            node->prev = curr->prev;
-            node->next = curr;
-            curr->prev->next = node;
-            curr->prev = node;
-            size++;
+        Node* prevNode = head;
+        for (size_t i = 1; i < index; i++) {
+            if (!prevNode->next) {
+                throw IndexOutOfRangeException(index, i-1);
+            }
+            prevNode = prevNode->next;
         }
+
+        Node* node = new Node(item);
+
+        node->next = prevNode->next;
+        node->prev = prevNode;
+
+        if (prevNode->next) {
+            prevNode->next->prev = node;
+        } else {
+            tail = node; 
+        }
+        prevNode->next = node;
     }
 
     LinkedList<T>* Concat(LinkedList<T>* list) {
         LinkedList<T>* newList = new LinkedList<T>();
-        Node* curr = head;
-        while (curr) {
-            newList->Append(curr->value);
-            curr = curr->next;
+        for (auto& el : *this) {
+            newList->Append(el);
         }
-        curr = list->head;
-        while (curr) {
-            newList->Append(curr->value);
-            curr = curr->next;
+        for (auto& el : *list) {
+            newList->Append(el);
         }
         return newList;
     }

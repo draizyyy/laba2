@@ -1,7 +1,5 @@
 #pragma once
 #include "core/linked_list.hpp"
-#include "iterators/ienumerator.hpp"
-#include "iterators/list_enumerator.hpp"
 #include "option.hpp"
 
 namespace myLib {
@@ -9,68 +7,86 @@ template<typename T>
 class ListSequence : public Sequence<T> {
 protected:
     LinkedList<T>* data;
-public:
-    ListSequence () : data(new LinkedList<T>()) {}
-    ListSequence (T* items, int count) : data(new LinkedList<T>(items, count)) {}
-    ListSequence(LinkedList<T>& list) : data(new LinkedList(list)) {}
+    size_t size{};
 
+public:
+    ListSequence() : data(new LinkedList<T>()) {}
+    ListSequence(T* items, size_t count) : data(new LinkedList<T>(items, count)), size(count) {}
+        ListSequence(LinkedList<T>& list) : data(new LinkedList<T>(list)) {
+        for (auto it = list.begin(); it != list.end(); ++it) {
+            size++;
+        }
+    }
     ~ListSequence() override {
         delete data;
     }
 
-    T GetFirst() override {
-        return data->GetFirst();
+    T GetFirst() override { 
+        return data->GetFirst(); 
     }
-    T GetLast() override {
-        return data->GetLast();
+    T GetLast() override { 
+        return data->GetLast(); 
     }
-    T Get(int index) override {
-        return data->Get(index);
-    }
-
-    Sequence<T>* GetSubsequence(int startIndex, int endIndex) override {
-        Sequence<T>* seq = new ListSequence<T>(*data->GetSubList(startIndex, endIndex));
-        return seq;
+    T Get(size_t index) override { 
+        return data->Get(index); 
     }
 
-    int GetLength() override {
-        return data->GetLength();
+    Sequence<T>* GetSubsequence(size_t startIndex, size_t endIndex) override {
+        return new ListSequence<T>(*data->GetSubList(startIndex, endIndex));
+    }
+
+    size_t GetLength() override {
+        return size;
     }
 
     Sequence<T>* Append(T item) override {
         data->Append(item);
+        size++;
         return this;
     }
 
     Sequence<T>* Prepend(T item) override {
         data->Prepend(item);
+        size++;
         return this;
     }
 
-    Sequence<T>* InsertAt(T item, int index) override {
+    Sequence<T>* InsertAt(T item, size_t index) override {
         data->InsertAt(item, index);
+        size++;
         return this;
     }
 
     Sequence<T>* Concat(Sequence<T>* list) override {
-        LinkedList<T>* newList = new LinkedList<T>(*data);
-        for (int i = 0; i < list->GetLength(); i++) {
-            newList->Append(list->Get(i));
+        if (list->GetLength() == 0) {
+            return new ListSequence<T>(*data);
         }
-        Sequence<T>* res = new ListSequence<T>(*newList);
-        delete newList;
+        
+        LinkedList<T>* curr = new LinkedList<T>(*data);
+        auto other = static_cast<ListSequence<T>*>(list);
+        for (const auto& el : *other) {
+            curr->Append(el);
+        }
+        
+        Sequence<T>* res = new ListSequence<T>(*curr);
+        delete curr;
         return res;
     }
-    IEnumerator<T>* GetEnumerator() override {
-        return new ListEnumerator<T>(data);
+
+    auto begin() const { 
+        return data->begin();
+    }
+    auto end() const { 
+        return data->end(); 
     }
 
     template<typename T2>
     Sequence<T2>* Map(T2 (*func)(T)) {
-        int len = GetLength();
+        size_t len = GetLength();
         T2* t2 = new T2[len];
-        for (int i = 0; i < len; i++) {
-            t2[i] = func(Get(i));
+        size_t i = 0;
+        for (const auto& val : *this) {
+            t2[i++] = func(val);
         }
         Sequence<T2>* seq = new ListSequence<T2>(t2, len);
         delete[] t2;
@@ -78,13 +94,11 @@ public:
     }
 
     Sequence<T>* Where(bool (*predicate)(T)) {
-        int len = GetLength();
-        T* t = new T[len];
-        int count = 0;
-        for (int i = 0; i < len; i++) {
-            T t2 = Get(i);
-            if (predicate(t2)) {
-                t[count++] = t2;
+        T* t = new T[GetLength()];
+        size_t count = 0;
+        for (const auto& val : *this) {
+            if (predicate(val)) {
+                t[count++] = val;
             }
         }
         Sequence<T>* seq = new ListSequence<T>(t, count);
@@ -95,33 +109,30 @@ public:
     template<typename T2>
     Sequence<T2>* Reduce(T2 (*func)(T2, T), T2 t2) {
         T2 t = t2;
-        int len = GetLength();
-        for (int i = 0; i < len; i++) {
-            t = func(t, Get(i));
+        for (const auto& val : *this) {
+            t = func(t, val);
         }
-        return new ListSequence<T2>(&t, 1);
+        T2 arr[1] = { t };
+        return new ListSequence<T2>(arr, 1);
     }
 
     Option<T> GetFirst(bool (*predicate)(T)) {
-        int len = GetLength();
-        for (int i = 0; i < len; i++) {
-            T t = Get(i);
-            if (predicate == nullptr || predicate(t)) {
-                return Option<T>(t);
+        for (const auto& val : *this) {
+            if (predicate == nullptr || predicate(val)) {
+                return Option<T>(val);
             }
         }
         return Option<T>();
     }
 
     Option<T> GetLast(bool (*predicate)(T)) {
-        int len = GetLength();
-        for (int i = len - 1; i >= 0; i--) {
-            T t = Get(i);
-            if (predicate == nullptr || predicate(t)) {
-                return Option<T>(t);
+        Option<T> result;
+        for (const auto& val : *this) {
+            if (predicate == nullptr || predicate(val)) {
+                result = Option<T>(val);
             }
         }
-        return Option<T>();
+        return result;
     }
 };
 }

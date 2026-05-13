@@ -1,41 +1,63 @@
 #pragma once
-#include <exceptions.hpp>
+#include "exceptions.hpp"
 
 namespace myLib {
 
 template<typename T>
 class Option {
 private:
-    T* value;
+    alignas(T) unsigned char storage[sizeof(T)];
     bool hasValue;
+
 public:
-    Option() : value(nullptr), hasValue(false) {}
-    Option(T value) : value(new T(value)), hasValue(true) {}
-    ~Option() { delete value; }
-    
-    Option(const Option& other) : hasValue(other.hasValue) {
-        value = hasValue ? new T(*other.value) : nullptr;
+    Option() : hasValue(false) {}
+
+    Option(const T& value) : hasValue(true) {
+        new (static_cast<T*>(static_cast<void*>(&storage))) T(value);
     }
+
+    ~Option() {
+        if (hasValue) {
+            static_cast<T*>(static_cast<void*>(&storage))->~T();
+        }
+    }
+
+    Option(const Option& other) : hasValue(other.hasValue) {
+        if (hasValue) {
+            new (static_cast<T*>(static_cast<void*>(&storage))) T(
+                *static_cast<const T*>(static_cast<const void*>(&other.storage))
+            );
+        }
+    }
+
     Option& operator=(const Option& other) {
         if (this != &other) {
-            delete value;
+            if (hasValue) static_cast<T*>(static_cast<void*>(&storage))->~T();
             hasValue = other.hasValue;
-            value = hasValue ? new T(*other.value) : nullptr;
+            if (hasValue) {
+                new (static_cast<T*>(static_cast<void*>(&storage))) T(
+                    *static_cast<const T*>(static_cast<const void*>(&other.storage))
+                );
+            }
         }
         return *this;
     }
-    
-    bool HasValue() { return hasValue; }
-    bool IsNone() { return !hasValue; }
 
-    T GetValue() {
-        if (!hasValue) throw IndexOutOfRangeException();
-        return *value;
+    bool HasValue() { 
+        return hasValue;
     }
-    T GetValueOrDefault(T def) { return hasValue ? *value : def; }
-    
-    static Option<T> None() { return Option<T>(); }
-    static Option<T> Some(T value) { return Option<T>(value); }
+    bool IsNone() { 
+        return !hasValue; 
+    }
+
+    T& GetValue() {
+        if (!hasValue) throw EmptyCollectionException("Option пуст");
+        return *static_cast<T*>(static_cast<void*>(&storage));
+    }
+
+    T GetValueOrDefault(T& def)  {
+        return hasValue ? *static_cast<T*>(static_cast< void*>(&storage)) : def;
+    }
 };
 
 }
