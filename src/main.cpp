@@ -1,8 +1,13 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include "httplib.h"
-#include "nlohmann/json.hpp"
+#include <vector>
+#include <map>
+#include <memory>
+#include <stdexcept>
+#include <cctype>
+#include <algorithm>
+
 #include "sequences/sequence.hpp"
 #include "core/dynamic_array.hpp"
 #include "core/linked_list.hpp"
@@ -11,9 +16,105 @@
 #include "sequences/array_sequence.hpp"
 #include "sequences/list_sequence.hpp"
 #include "sequences/bit_sequence.hpp"
+#include <httplib.h>
 
-using json = nlohmann::json;
 using namespace myLib;
+
+class JsonValue {
+public:
+    enum Type { NULL_T, BOOL_T, NUMBER_T, STRING_T, ARRAY_T, OBJECT_T };
+    Type type = NULL_T;
+    
+    bool b = false;
+    double n = 0.0;
+    std::string s;
+    std::vector<JsonValue> arr;
+    std::map<std::string, JsonValue> obj;
+
+    JsonValue() = default;
+    JsonValue(int v) : type(NUMBER_T), n(v) {}
+    JsonValue(double v) : type(NUMBER_T), n(v) {}
+    JsonValue(const std::string& v) : type(STRING_T), s(v) {}
+    JsonValue(const char* v) : type(STRING_T), s(v) {}
+    JsonValue(bool v) : type(BOOL_T), b(v) {}
+
+    static JsonValue object() { JsonValue j; j.type = OBJECT_T; return j; }
+    static JsonValue array() { JsonValue j; j.type = ARRAY_T; return j; }
+
+    JsonValue& operator[](const std::string& key) {
+        if (type != OBJECT_T) type = OBJECT_T;
+        return obj[key];
+    }
+    
+    void push_back(const JsonValue& item) {
+        if (type != ARRAY_T) type = ARRAY_T;
+        arr.push_back(item);
+    }
+
+    std::string dump(bool root = true) const {
+        std::ostringstream oss;
+        switch (type) {
+            case NULL_T: oss << "null"; break;
+            case BOOL_T: oss << (b ? "true" : "false"); break;
+            case NUMBER_T: oss << n; break;
+            case STRING_T: oss << "\"" << s << "\""; break;
+            case ARRAY_T: {
+                oss << "[";
+                for (size_t i = 0; i < arr.size(); ++i) {
+                    oss << arr[i].dump(false) << (i + 1 < arr.size() ? "," : "");
+                }
+                oss << "]";
+                break;
+            }
+            case OBJECT_T: {
+                oss << "{";
+                size_t count = 0;
+                for (auto const& [key, val] : obj) {
+                    oss << "\"" << key << "\":" << val.dump(false);
+                    if (++count < obj.size()) oss << ",";
+                }
+                oss << "}";
+                break;
+            }
+        }
+        return oss.str();
+    }
+
+    std::string asString() const {
+        if (type == STRING_T) return s;
+        if (type == NUMBER_T) {
+            std::ostringstream oss;
+            oss << n;
+            return oss.str();
+        }
+        if (type == BOOL_T) return b ? "true" : "false";
+        if (type == NULL_T) return "null";
+        return "";
+    }
+
+    static JsonValue parseSimpleDict(const std::string& body) {
+        JsonValue result = JsonValue::object();
+        std::string clean = body;
+        clean.erase(remove_if(clean.begin(), clean.end(), [](char c){ return c=='{' || c=='}' || c=='\"'; }), clean.end());
+        std::istringstream stream(clean);
+        std::string pair;
+        while (getline(stream, pair, ',')) {
+            size_t delim = pair.find(':');
+            if (delim != std::string::npos) {
+                std::string key = pair.substr(0, delim);
+                std::string val = pair.substr(delim + 1);
+                key.erase(0, key.find_first_not_of(" \t\n\r"));
+                val.erase(0, val.find_first_not_of(" \t\n\r"));
+                
+                if (val == "true") result[key] = true;
+                else if (val == "false") result[key] = false;
+                else if (!val.empty() && isdigit(val[0])) result[key] = std::stod(val);
+                else result[key] = val;
+            }
+        }
+        return result;
+    }
+};
 
 static int Square(int x) { return x * x; }
 static bool IsEven(int x) { return x % 2 == 0; }
@@ -22,32 +123,262 @@ static int SumFunc(int acc, int x) { return acc + x; }
 static int ProdFunc(int acc, int x) { return acc * x; }
 static bool IsDivBy3(int x) { return x % 3 == 0; }
 
-Sequence<int>* activeIntSeq = nullptr;
-Sequence<double>* activeDoubleSeq = nullptr;
-Sequence<std::string>* activeStringSeq = nullptr;
-BitSequence<uint8_t>* activeBitSeq = nullptr;
-std::string currentSeqType = "";
-std::string currentDataType = "";
+template <typename T> T FromString(const std::string& str);
+template <> int FromString<int>(const std::string& str) { return str.empty() ? 0 : std::stoi(str); }
+template <> double FromString<double>(const std::string& str) { return str.empty() ? 0.0 : std::stod(str); }
+template <> std::string FromString<std::string>(const std::string& str) { return str; }
+template <> Bit<uint8_t> FromString<Bit<uint8_t>>(const std::string& str) { return Bit<uint8_t>(str.empty() ? 0 : std::stoi(str)); }
 
-void ClearCurrent() {
-    delete activeIntSeq; activeIntSeq = nullptr;
-    delete activeDoubleSeq; activeDoubleSeq = nullptr;
-    delete activeStringSeq; activeStringSeq = nullptr;
-    delete activeBitSeq; activeBitSeq = nullptr;
+template <typename T> std::string ToString(const T& val) {
+    std::ostringstream oss; oss << val; return oss.str();
 }
 
-json GetAllElements() {
-    json arr = json::array();
-    if (currentDataType == "int" && activeIntSeq) {
-        for (size_t i = 0; i < activeIntSeq->GetLength(); ++i) arr.push_back(activeIntSeq->Get(i));
-    } else if (currentDataType == "double" && activeDoubleSeq) {
-        for (size_t i = 0; i < activeDoubleSeq->GetLength(); ++i) arr.push_back(activeDoubleSeq->Get(i));
-    } else if (currentDataType == "string" && activeStringSeq) {
-        for (size_t i = 0; i < activeStringSeq->GetLength(); ++i) arr.push_back(activeStringSeq->Get(i));
-    } else if (currentDataType == "uint8" && activeBitSeq) {
-        for (size_t i = 0; i < activeBitSeq->GetLength(); ++i) arr.push_back(static_cast<int>(activeBitSeq->Get(i).GetValue()));
+template <> std::string ToString<Bit<uint8_t>>(const Bit<uint8_t>& val) {
+    return std::to_string(val.GetValue());
+}
+
+class ISequenceWrapper {
+public:
+    virtual ~ISequenceWrapper() = default;
+    virtual void Append(const std::string& val) = 0;
+    virtual void Prepend(const std::string& val) = 0;
+    virtual void InsertAt(const std::string& val, int index) = 0;
+    virtual size_t GetLength() const = 0;
+    virtual std::string GetFirst() const = 0;
+    virtual std::string GetLast() const = 0;
+    virtual std::string Get(int index) const = 0;
+    virtual JsonValue GetAllAsJsonArray() const = 0;
+
+    virtual JsonValue Map(const std::string& func) { throw std::runtime_error("Не поддерживается"); }
+    virtual JsonValue Where(const std::string& func) { throw std::runtime_error("Не поддерживается"); }
+    virtual std::string Reduce(const std::string& func, const std::string& initVal) { throw std::runtime_error("Не поддерживается"); }
+    virtual std::string GetFirstPred(const std::string& func) { throw std::runtime_error("Не поддерживается"); }
+    virtual std::string GetLastPred(const std::string& func) { throw std::runtime_error("Не поддерживается"); }
+};
+
+template <typename T>
+class SequenceWrapper : public ISequenceWrapper {
+private:
+    std::unique_ptr<Sequence<T>> seq;
+public:
+    SequenceWrapper(Sequence<T>* ptr) : seq(ptr) {}
+
+    void Append(const std::string& val) override { seq->Append(FromString<T>(val)); }
+    void Prepend(const std::string& val) override { seq->Prepend(FromString<T>(val)); }
+    void InsertAt(const std::string& val, int index) override { seq->InsertAt(FromString<T>(val), index); }
+    size_t GetLength() const override { return seq->GetLength(); }
+    std::string GetFirst() const override { return ToString(seq->GetFirst()); }
+    std::string GetLast() const override { return ToString(seq->GetLast()); }
+    std::string Get(int index) const override { return ToString(seq->Get(index)); }
+
+    JsonValue GetAllAsJsonArray() const override {
+        JsonValue arr = JsonValue::array();
+        for (size_t i = 0; i < seq->GetLength(); ++i) {
+            arr.push_back(JsonValue(ToString(seq->Get(i))));
+        }
+        return arr;
     }
-    return arr;
+
+    JsonValue Map(const std::string& func) override {
+        if constexpr (std::is_same_v<T, int>) {
+            JsonValue arr = JsonValue::array();
+            if (func == "Square") {
+                for (size_t i = 0; i < seq->GetLength(); ++i) {
+                    arr.push_back(Square(seq->Get(i)));
+                }
+            } else {
+                throw std::runtime_error("Не поддерживается с данной функцией: " + func);
+            }
+            return arr;
+        }
+        throw std::runtime_error("Map поддерживает только тип int");
+    }
+
+    JsonValue Where(const std::string& func) override {
+        if constexpr (std::is_same_v<T, int>) {
+            JsonValue arr = JsonValue::array();
+            bool (*pred)(int) = nullptr;
+            if (func == "IsEven") pred = IsEven;
+            else if (func == "IsPositive") pred = IsPositive;
+            else if (func == "IsDivBy3") pred = IsDivBy3;
+            else throw std::runtime_error("Не поддерживается с данной функцией: " + func);
+            
+            for (size_t i = 0; i < seq->GetLength(); ++i) {
+                int val = seq->Get(i);
+                if (pred(val)) {
+                    arr.push_back(val);
+                }
+            }
+            return arr;
+        }
+        throw std::runtime_error("Where поддерживает только тип int");
+    }
+
+    std::string Reduce(const std::string& func, const std::string& initValStr) override {
+        if constexpr (std::is_same_v<T, int>) {
+            int initVal = FromString<int>(initValStr);
+            int result = initVal;
+            
+            if (func == "SumFunc") {
+                for (size_t i = 0; i < seq->GetLength(); ++i) {
+                    result = SumFunc(result, seq->Get(i));
+                }
+            } else if (func == "ProdFunc") {
+                for (size_t i = 0; i < seq->GetLength(); ++i) {
+                    result = ProdFunc(result, seq->Get(i));
+                }
+            } else {
+                throw std::runtime_error("Не поддерживается с данной функцией: " + func);
+            }
+            return ToString(result);
+        }
+        throw std::runtime_error("Reduce поддерживает только тип int");
+    }
+
+    std::string GetFirstPred(const std::string& func) override {
+        if constexpr (std::is_same_v<T, int>) {
+            bool (*pred)(int) = nullptr;
+            if (func == "IsEven") pred = IsEven;
+            else if (func == "IsPositive") pred = IsPositive;
+            else if (func == "IsDivBy3") pred = IsDivBy3;
+            else throw std::runtime_error("Не поддерживается с данной функцией: " + func);
+
+            for (size_t i = 0; i < seq->GetLength(); ++i) {
+                int val = seq->Get(i);
+                if (pred(val)) {
+                    return ToString(val);
+                }
+            }
+            return "Не найдено";
+        }
+        throw std::runtime_error("Предикаты поддерживаются только для типа int");
+    }
+
+    std::string GetLastPred(const std::string& func) override {
+        if constexpr (std::is_same_v<T, int>) {
+            bool (*pred)(int) = nullptr;
+            if (func == "IsEven") pred = IsEven;
+            else if (func == "IsPositive") pred = IsPositive;
+            else if (func == "IsDivBy3") pred = IsDivBy3;
+            else throw std::runtime_error("Не поддерживается с данной функцией: " + func);
+
+            for (int i = static_cast<int>(seq->GetLength()) - 1; i >= 0; --i) {
+                int val = seq->Get(i);
+                if (pred(val)) {
+                    return ToString(val);
+                }
+            }
+            return "Не найдено";
+        }
+        throw std::runtime_error("Предикаты поддерживаются только для типа int");
+    }
+};
+
+template <>
+class SequenceWrapper<Bit<uint8_t>> : public ISequenceWrapper {
+private:
+    std::unique_ptr<BitSequence<uint8_t>> seq;
+    static constexpr size_t bitsPerElement = 8;
+public:
+    SequenceWrapper(BitSequence<uint8_t>* ptr) : seq(ptr) {}
+
+    void Append(const std::string& val) override {
+        int v = std::stoi(val.empty() ? "0" : val);
+        seq->Append(Bit<uint8_t>(v));
+    }
+    void Prepend(const std::string& val) override {
+        int v = std::stoi(val.empty() ? "0" : val);
+        seq->Prepend(Bit<uint8_t>(v));
+    }
+    void InsertAt(const std::string& val, int index) override {
+        int v = std::stoi(val.empty() ? "0" : val);
+        (*seq)[index] = (v != 0);
+    }
+    size_t GetLength() const override { return seq->GetLength() * bitsPerElement; }
+    std::string GetFirst() const override { return std::to_string(static_cast<bool>((*seq)[0])); }
+    std::string GetLast() const override { 
+        size_t len = seq->GetLength();
+        if (len == 0) return "Пусто";
+        return std::to_string(static_cast<bool>((*seq)[len * bitsPerElement - 1])); 
+    }
+    std::string Get(int index) const override { return std::to_string(static_cast<bool>((*seq)[index])); }
+
+    JsonValue GetAllAsJsonArray() const override {
+        JsonValue arr = JsonValue::array();
+        size_t total = seq->GetLength() * bitsPerElement;
+        for (size_t i = 0; i < total; ++i) {
+            arr.push_back(JsonValue(static_cast<bool>((*seq)[i]) ? 1 : 0));
+        }
+        return arr;
+    }
+
+    JsonValue Map(const std::string& func) override { throw std::runtime_error("Не поддерживается"); }
+    JsonValue Where(const std::string& func) override { throw std::runtime_error("Не поддерживается"); }
+    std::string Reduce(const std::string& func, const std::string& initVal) override { throw std::runtime_error("Не поддерживается"); }
+    std::string GetFirstPred(const std::string& func) override { throw std::runtime_error("Не поддерживается"); }
+    std::string GetLastPred(const std::string& func) override { throw std::runtime_error("Не поддерживается"); }
+};
+
+std::unique_ptr<ISequenceWrapper> activeSequence = nullptr;
+
+std::string ProcessApiRequest(const std::string& requestBody) {
+    JsonValue request = JsonValue::parseSimpleDict(requestBody);
+    JsonValue response = JsonValue::object();
+    response["status"] = "ok";
+
+    std::string action = request["action"].s;
+    std::string seqType = request["seqType"].s;
+    std::string dataType = request["dataType"].s;
+    std::string valueStr = request["value"].asString();
+    int index = static_cast<int>(request["index"].n);
+    std::string func = request["func"].s;
+
+    try {
+        if (action == "create") {
+            if (dataType == "int") {
+                if (seqType == "ArraySequence") activeSequence = std::make_unique<SequenceWrapper<int>>(new ArraySequence<int>());
+                else if (seqType == "ListSequence") activeSequence = std::make_unique<SequenceWrapper<int>>(new ListSequence<int>());
+            } else if (dataType == "double") {
+                if (seqType == "ArraySequence") activeSequence = std::make_unique<SequenceWrapper<double>>(new ArraySequence<double>());
+                else if (seqType == "ListSequence") activeSequence = std::make_unique<SequenceWrapper<double>>(new ListSequence<double>());
+            } else if (dataType == "string") {
+                if (seqType == "ArraySequence") activeSequence = std::make_unique<SequenceWrapper<std::string>>(new ArraySequence<std::string>());
+                else if (seqType == "ListSequence") activeSequence = std::make_unique<SequenceWrapper<std::string>>(new ListSequence<std::string>());
+            } else if (dataType == "uint8" && seqType == "BitSequence") {
+                activeSequence = std::make_unique<SequenceWrapper<Bit<uint8_t>>>(new BitSequence<uint8_t>());
+            } else {
+                throw std::runtime_error("Неподдерживаемая комбинация последовательности и типа данных");
+            }
+            response["result"] = "Создано: " + seqType + "<" + dataType + ">";
+        } 
+        else if (activeSequence) {
+            if (action == "append") { activeSequence->Append(valueStr); response["result"] = "Добавлено в конец"; }
+            else if (action == "prepend") { activeSequence->Prepend(valueStr); response["result"] = "Добавлено в начало"; }
+            else if (action == "insertAt") { activeSequence->InsertAt(valueStr, index); response["result"] = "Установлено по индексу"; }
+            else if (action == "getLength") response["result"] = static_cast<double>(activeSequence->GetLength());
+            else if (action == "getFirst") response["result"] = activeSequence->GetFirst();
+            else if (action == "getLast") response["result"] = activeSequence->GetLast();
+            else if (action == "get") response["result"] = activeSequence->Get(index);
+            else if (action == "map") response["result"] = activeSequence->Map(func);
+            else if (action == "where") response["result"] = activeSequence->Where(func);
+            else if (action == "reduce") response["result"] = activeSequence->Reduce(func, valueStr);
+            else if (action == "getFirstPred") response["result"] = activeSequence->GetFirstPred(func);
+            else if (action == "getLastPred") response["result"] = activeSequence->GetLastPred(func);
+        } else {
+            throw std::runtime_error("Последовательность ещё не создана");
+        }
+    } catch (const std::exception& e) {
+        response["status"] = "error";
+        response["message"] = std::string(e.what());
+    }
+
+    if (activeSequence) {
+        response["all"] = activeSequence->GetAllAsJsonArray();
+    } else {
+        response["all"] = JsonValue::array();
+    }
+
+    return response.dump();
 }
 
 const char* HTML_CONTENT = R"HTML(
@@ -55,7 +386,7 @@ const char* HTML_CONTENT = R"HTML(
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Sequence Web UI</title>
+    <title>Веб-интерфейс последовательностей</title>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #f4f4f9; color: #333; }
         .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -69,7 +400,7 @@ const char* HTML_CONTENT = R"HTML(
 </head>
 <body>
 <div class="container">
-    <h2>Sequence Interface</h2>
+    <h2>Интерфейс последовательностей</h2>
     <div class="panel">
         <select id="seqType">
             <option value="ArraySequence">ArraySequence</option>
@@ -80,17 +411,17 @@ const char* HTML_CONTENT = R"HTML(
             <option value="int">int</option>
             <option value="double">double</option>
             <option value="string">string</option>
-            <option value="uint8">uint8 (for BitSequence)</option>
+            <option value="uint8">uint8 (для BitSequence)</option>
         </select>
         <button onclick="apiCall('create')">Создать последовательность</button>
     </div>
     <div class="panel">
-        <input type="text" id="inputValue" placeholder="Значение">
+        <input type="text" id="inputValue" placeholder="Значение (0 или 1 для битов)">
         <input type="number" id="inputIndex" placeholder="Индекс (опционально)">
         <div class="grid">
             <button onclick="apiCall('prepend')">Добавить в начало</button>
             <button onclick="apiCall('append')">Добавить в конец</button>
-            <button onclick="apiCall('insertAt')">Добавить по индексу</button>
+            <button onclick="apiCall('insertAt')">Установить по индексу</button>
             <button onclick="apiCall('getLength')">Размер</button>
             <button onclick="apiCall('getFirst')">Начало</button>
             <button onclick="apiCall('getLast')">Конец</button>
@@ -110,13 +441,13 @@ const char* HTML_CONTENT = R"HTML(
             <button onclick="apiCall('map')">Map</button>
             <button onclick="apiCall('reduce')">Reduce</button>
             <button onclick="apiCall('where')">Where</button>
-            <button onclick="apiCall('getFirstPred')">GetFirst (Pred)</button>
-            <button onclick="apiCall('getLastPred')">GetLast (Pred)</button>
+            <button onclick="apiCall('getFirstPred')">Первый по предикату</button>
+            <button onclick="apiCall('getLastPred')">Последний по предикату</button>
         </div>
     </div>
-    <h3>Все элементы (Итератор):</h3>
+    <h3>Все элементы:</h3>
     <div id="allElements" class="output">[]</div>
-    <h3>Результат выполнения:</h3>
+    <h3>Результат:</h3>
     <div id="resultOutput" class="output"></div>
 </div>
 <script>
@@ -159,146 +490,12 @@ int main() {
     });
 
     svr.Post("/api", [](const httplib::Request& req, httplib::Response& res) {
-        json j = json::parse(req.body);
-        json response;
-        response["status"] = "ok";
-        std::string action = j["action"];
-        std::string seqType = j["seqType"];
-        std::string dataType = j["dataType"];
-        std::string valueStr = j["value"];
-        int index = j["index"];
-        std::string func = j["func"];
-
-        try {
-            if (action == "create") {
-                ClearCurrent();
-                currentSeqType = seqType;
-                currentDataType = dataType;
-                if (dataType == "int") {
-                    if (seqType == "ArraySequence") activeIntSeq = new ArraySequence<int>();
-                    else if (seqType == "ListSequence") activeIntSeq = new ListSequence<int>();
-                } else if (dataType == "double") {
-                    if (seqType == "ArraySequence") activeDoubleSeq = new ArraySequence<double>();
-                    else if (seqType == "ListSequence") activeDoubleSeq = new ListSequence<double>();
-                } else if (dataType == "string") {
-                    if (seqType == "ArraySequence") activeStringSeq = new ArraySequence<std::string>();
-                    else if (seqType == "ListSequence") activeStringSeq = new ListSequence<std::string>();
-                } else if (dataType == "uint8" && seqType == "BitSequence") {
-                    activeBitSeq = new BitSequence<uint8_t>();
-                }
-                response["result"] = "Created: " + seqType + "<" + dataType + ">";
-            } else {
-                if (action == "append") {
-                    if (currentDataType == "int") activeIntSeq->Append(std::stoi(valueStr));
-                    else if (currentDataType == "double") activeDoubleSeq->Append(std::stod(valueStr));
-                    else if (currentDataType == "string") activeStringSeq->Append(valueStr);
-                    else if (currentDataType == "uint8") activeBitSeq->Append(Bit<uint8_t>(std::stoi(valueStr)));
-                    response["result"] = "Appended";
-                } else if (action == "prepend") {
-                    if (currentDataType == "int") activeIntSeq->Prepend(std::stoi(valueStr));
-                    else if (currentDataType == "double") activeDoubleSeq->Prepend(std::stod(valueStr));
-                    else if (currentDataType == "string") activeStringSeq->Prepend(valueStr);
-                    else if (currentDataType == "uint8") activeBitSeq->Prepend(Bit<uint8_t>(std::stoi(valueStr)));
-                    response["result"] = "Prepended";
-                } else if (action == "insertAt") {
-                    if (currentDataType == "int") activeIntSeq->InsertAt(std::stoi(valueStr), index);
-                    else if (currentDataType == "double") activeDoubleSeq->InsertAt(std::stod(valueStr), index);
-                    else if (currentDataType == "string") activeStringSeq->InsertAt(valueStr, index);
-                    else if (currentDataType == "uint8") activeBitSeq->InsertAt(Bit<uint8_t>(std::stoi(valueStr)), index);
-                    response["result"] = "Inserted";
-                } else if (action == "getLength") {
-                    if (currentDataType == "int") response["result"] = activeIntSeq->GetLength();
-                    else if (currentDataType == "double") response["result"] = activeDoubleSeq->GetLength();
-                    else if (currentDataType == "string") response["result"] = activeStringSeq->GetLength();
-                    else if (currentDataType == "uint8") response["result"] = activeBitSeq->GetLength();
-                } else if (action == "getFirst") {
-                    if (currentDataType == "int") response["result"] = activeIntSeq->GetFirst();
-                    else if (currentDataType == "double") response["result"] = activeDoubleSeq->GetFirst();
-                    else if (currentDataType == "string") response["result"] = activeStringSeq->GetFirst();
-                    else if (currentDataType == "uint8") response["result"] = static_cast<int>(activeBitSeq->GetFirst().GetValue());
-                } else if (action == "getLast") {
-                    if (currentDataType == "int") response["result"] = activeIntSeq->GetLast();
-                    else if (currentDataType == "double") response["result"] = activeDoubleSeq->GetLast();
-                    else if (currentDataType == "string") response["result"] = activeStringSeq->GetLast();
-                    else if (currentDataType == "uint8") response["result"] = static_cast<int>(activeBitSeq->GetLast().GetValue());
-                } else if (action == "get") {
-                    if (currentDataType == "int") response["result"] = activeIntSeq->Get(index);
-                    else if (currentDataType == "double") response["result"] = activeDoubleSeq->Get(index);
-                    else if (currentDataType == "string") response["result"] = activeStringSeq->Get(index);
-                    else if (currentDataType == "uint8") response["result"] = static_cast<int>(activeBitSeq->Get(index).GetValue());
-                } else if (currentDataType == "int") {
-                    if (action == "map") {
-                        json arr = json::array();
-                        if (currentSeqType == "ArraySequence") {
-                            auto* seq = static_cast<ArraySequence<int>*>(activeIntSeq);
-                            Sequence<int>* res = nullptr;
-                            if (func == "Square") res = seq->Map(Square);
-                            if (res) { for (size_t i = 0; i < res->GetLength(); ++i) arr.push_back(res->Get(i)); delete res; }
-                        } else if (currentSeqType == "ListSequence") {
-                            auto* seq = static_cast<ListSequence<int>*>(activeIntSeq);
-                            Sequence<int>* res = nullptr;
-                            if (func == "Square") res = seq->Map(Square);
-                            if (res) { for (size_t i = 0; i < res->GetLength(); ++i) arr.push_back(res->Get(i)); delete res; }
-                        }
-                        response["result"] = arr;
-                    } else if (action == "where") {
-                        json arr = json::array();
-                        Sequence<int>* res = nullptr;
-                        if (currentSeqType == "ArraySequence") {
-                            auto* seq = static_cast<ArraySequence<int>*>(activeIntSeq);
-                            if (func == "IsEven") res = seq->Where(IsEven);
-                            else if (func == "IsPositive") res = seq->Where(IsPositive);
-                            else if (func == "IsDivBy3") res = seq->Where(IsDivBy3);
-                        } else if (currentSeqType == "ListSequence") {
-                            auto* seq = static_cast<ListSequence<int>*>(activeIntSeq);
-                            if (func == "IsEven") res = seq->Where(IsEven);
-                            else if (func == "IsPositive") res = seq->Where(IsPositive);
-                            else if (func == "IsDivBy3") res = seq->Where(IsDivBy3);
-                        }
-                        if (res) { for (size_t i = 0; i < res->GetLength(); ++i) arr.push_back(res->Get(i)); delete res; }
-                        response["result"] = arr;
-                    } else if (action == "reduce") {
-                        int initVal = valueStr.empty() ? 0 : std::stoi(valueStr);
-                        Sequence<int>* res = nullptr;
-                        if (currentSeqType == "ArraySequence") {
-                            auto* seq = static_cast<ArraySequence<int>*>(activeIntSeq);
-                            if (func == "SumFunc") res = seq->Reduce(SumFunc, initVal);
-                            else if (func == "ProdFunc") res = seq->Reduce(ProdFunc, initVal);
-                        } else if (currentSeqType == "ListSequence") {
-                            auto* seq = static_cast<ListSequence<int>*>(activeIntSeq);
-                            if (func == "SumFunc") res = seq->Reduce(SumFunc, initVal);
-                            else if (func == "ProdFunc") res = seq->Reduce(ProdFunc, initVal);
-                        }
-                        if (res) { response["result"] = res->GetFirst(); delete res; }
-                    } else if (action == "getFirstPred" || action == "getLastPred") {
-                        bool (*pred)(int) = nullptr;
-                        if (func == "IsEven") pred = IsEven;
-                        else if (func == "IsPositive") pred = IsPositive;
-                        else if (func == "IsDivBy3") pred = IsDivBy3;
-                        if (currentSeqType == "ArraySequence") {
-                            auto* seq = static_cast<ArraySequence<int>*>(activeIntSeq);
-                            auto opt = action == "getFirstPred" ? seq->GetFirst(pred) : seq->GetLast(pred);
-                            if (opt.HasValue()) response["result"] = opt.GetValue();
-                            else response["result"] = "Not found";
-                        } else if (currentSeqType == "ListSequence") {
-                            auto* seq = static_cast<ListSequence<int>*>(activeIntSeq);
-                            auto opt = action == "getFirstPred" ? seq->GetFirst(pred) : seq->GetLast(pred);
-                            if (opt.HasValue()) response["result"] = opt.GetValue();
-                            else response["result"] = "Not found";
-                        }
-                    }
-                } else {
-                    response["result"] = "Predicates not supported for this type in demo";
-                }
-            }
-        } catch (const std::exception& e) {
-            response["status"] = "error";
-            response["message"] = e.what();
-        }
-        response["all"] = GetAllElements();
-        res.set_content(response.dump(), "application/json");
+        std::string jsonResponse = ProcessApiRequest(req.body);
+        res.set_content(jsonResponse, "application/json");
     });
 
+    std::cout << "Сервер слушает 0.0.0.0:8080\n";
     svr.listen("0.0.0.0", 8080);
+
     return 0;
 }
