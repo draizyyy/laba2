@@ -148,6 +148,10 @@ public:
     virtual std::string GetLast() const = 0;
     virtual std::string Get(int index) const = 0;
     virtual JsonValue GetAllAsJsonArray() const = 0;
+    virtual JsonValue GetMinMaxAvg() { throw std::runtime_error("Не поддерживается"); }
+    virtual JsonValue GetPrefixes() { throw std::runtime_error("Не поддерживается"); }
+    virtual JsonValue GetMovingAverage() { throw std::runtime_error("Не поддерживается"); }
+    virtual JsonValue GetReflectionSum() { throw std::runtime_error("Не поддерживается"); }
 
     virtual JsonValue Map(const std::string& func) { throw std::runtime_error("Не поддерживается"); }
     virtual JsonValue Where(const std::string& func) { throw std::runtime_error("Не поддерживается"); }
@@ -272,6 +276,85 @@ public:
         }
         throw std::runtime_error("Предикаты поддерживаются только для типа int");
     }
+    JsonValue GetMinMaxAvg() override {
+        if constexpr (std::is_same_v<T, int>) {
+            if (seq->GetLength() == 0) throw std::runtime_error("Пустая последовательность");
+            
+            int minVal = seq->Get(0);
+            int maxVal = seq->Get(0);
+            long long sum = 0;
+            
+            for (size_t i = 0; i < seq->GetLength(); ++i) {
+                int val = seq->Get(i);
+                if (val < minVal) minVal = val;
+                if (val > maxVal) maxVal = val;
+                sum += val;
+            }
+            
+            double avg = static_cast<double>(sum) / seq->GetLength();
+            
+            JsonValue result = JsonValue::object();
+            result["min"] = minVal;
+            result["max"] = maxVal;
+            result["avg"] = avg;
+            return result;
+        }
+        throw std::runtime_error("Поддерживается только для int");
+    }
+
+    JsonValue GetPrefixes() override {
+        JsonValue result = JsonValue::array();
+        JsonValue current = JsonValue::array();
+        
+        for (size_t i = 0; i < seq->GetLength(); ++i) {
+            current.push_back(JsonValue(ToString(seq->Get(i))));
+            JsonValue prefix;
+            for (size_t j = 0; j <= i; ++j) {
+                prefix.push_back(JsonValue(ToString(seq->Get(j))));
+            }
+            result.push_back(prefix);
+        }
+        return result;
+    }
+
+    JsonValue GetMovingAverage() override {
+        if constexpr (std::is_same_v<T, int>) {
+            JsonValue result = JsonValue::array();
+            size_t len = seq->GetLength();
+            
+            for (size_t i = 0; i < len; ++i) {
+                double sum = seq->Get(i);
+                int count = 1;
+                
+                if (i > 0) {
+                    sum += seq->Get(i - 1);
+                    count++;
+                }
+                if (i < len - 1) {
+                    sum += seq->Get(i + 1);
+                    count++;
+                }
+                
+                result.push_back(sum / count);
+            }
+            return result;
+        }
+        throw std::runtime_error("Поддерживается только для int");
+    }
+
+    JsonValue GetReflectionSum() override {
+        if constexpr (std::is_same_v<T, int>) {
+            JsonValue result = JsonValue::array();
+            size_t len = seq->GetLength();
+            
+            for (size_t i = 0; i < len; ++i) {
+                int sum = seq->Get(i) + seq->Get(len - 1 - i);
+                result.push_back(sum);
+            }
+            return result;
+        }
+        throw std::runtime_error("Поддерживается только для int");
+    }
 };
 
 template <>
@@ -364,6 +447,10 @@ std::string ProcessApiRequest(const std::string& requestBody) {
             else if (action == "reduce") response["result"] = activeSequence->Reduce(func, valueStr);
             else if (action == "getFirstPred") response["result"] = activeSequence->GetFirstPred(func);
             else if (action == "getLastPred") response["result"] = activeSequence->GetLastPred(func);
+            else if (action == "getMinMaxAvg") response["result"] = activeSequence->GetMinMaxAvg();
+            else if (action == "getPrefixes") response["result"] = activeSequence->GetPrefixes();
+            else if (action == "getMovingAverage") response["result"] = activeSequence->GetMovingAverage();
+            else if (action == "getReflectionSum") response["result"] = activeSequence->GetReflectionSum();
         } else {
             throw std::runtime_error("Последовательность ещё не создана");
         }
@@ -426,6 +513,10 @@ const char* HTML_CONTENT = R"HTML(
             <button onclick="apiCall('getFirst')">Начало</button>
             <button onclick="apiCall('getLast')">Конец</button>
             <button onclick="apiCall('get')">По индексу</button>
+            <button onclick="apiCall('getMinMaxAvg')">Min/Max/Avg</button>
+            <button onclick="apiCall('getPrefixes')">Префиксы</button>
+            <button onclick="apiCall('getMovingAverage')">Среднее соседних</button>
+            <button onclick="apiCall('getReflectionSum')">Сумма с отражением</button>
         </div>
     </div>
     <div class="panel">
