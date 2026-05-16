@@ -1011,3 +1011,90 @@ TEST(BitSequenceTest, Iterator) {
     }
     EXPECT_EQ(i, 3);
 }
+
+// ToString
+
+// ArraySequence ToString
+TEST(ToStringTest, ArraySequence_Empty) {
+    ArraySequence<int> seq;
+    EXPECT_EQ(seq.ToString(), "[]");
+}
+
+TEST(ToStringTest, ArraySequence_SingleElement) {
+    int arr[] = {42};
+    ArraySequence<int> seq(arr, 1);
+    EXPECT_EQ(seq.ToString(), "[42]");
+}
+
+TEST(ToStringTest, ArraySequence_MultipleElements) {
+    int arr[] = {1, 2, 3, 4, 5};
+    ArraySequence<int> seq(arr, 5);
+    EXPECT_EQ(seq.ToString(), "[1, 2, 3, 4, 5]");
+}
+
+TEST(ToStringTest, ArraySequence_AfterModifications) {
+    ArraySequence<int> seq;
+    seq.Append(10)->Append(20)->Prepend(5);
+    EXPECT_EQ(seq.ToString(), "[5, 10, 20]");
+}
+
+// ListSequence 
+TEST(ToStringTest, ListSequence_Empty) {
+    ListSequence<int> seq;
+    EXPECT_EQ(seq.ToString(), "[]");
+}
+
+TEST(ToStringTest, ListSequence_SingleElement) {
+    int arr[] = {99};
+    ListSequence<int> seq(arr, 1);
+    EXPECT_EQ(seq.ToString(), "[99]");
+}
+
+TEST(ToStringTest, ListSequence_MultipleElements) {
+    int arr[] = {10, 20, 30};
+    ListSequence<int> seq(arr, 3);
+    EXPECT_EQ(seq.ToString(), "[10, 20, 30]");
+}
+
+TEST(ToStringTest, ListSequence_AfterModifications) {
+    ListSequence<int> seq;
+    seq.Append(100)->Append(200)->Prepend(50);
+    EXPECT_EQ(seq.ToString(), "[50, 100, 200]");
+}
+
+// BitSequence 
+TEST(ToStringTest, BitSequence_Empty) {
+    BitSequence<uint8_t> seq;
+    EXPECT_EQ(seq.ToString(), "[]");
+}
+
+TEST(ToStringTest, BitSequence_SingleByte) {
+    Bit<uint8_t> bits[] = { Bit<uint8_t>(0b10101010) };
+    BitSequence<uint8_t> seq(bits, 1);
+    EXPECT_EQ(seq.ToString(), "[0, 1, 0, 1, 0, 1, 0, 1]");
+}
+
+TEST(ToStringTest, BitSequence_MultipleBytes) {
+    Bit<uint8_t> bits[] = { 
+        Bit<uint8_t>(0b00001111), 
+        Bit<uint8_t>(0b11110000) 
+    };
+    BitSequence<uint8_t> seq(bits, 2);
+    EXPECT_EQ(seq.ToString(), "[1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]");
+}
+
+TEST(ToStringTest, BitSequence_AfterAppend) {
+    BitSequence<uint8_t> seq;
+    seq.Append(Bit<uint8_t>(0b00000001));
+    seq.Append(Bit<uint8_t>(0b00000010));
+    EXPECT_EQ(seq.ToString(), "[1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]");
+}
+
+TEST(ToStringTest, BitSequence_BitwiseOps) {
+    Bit<uint8_t> a[] = { Bit<uint8_t>(0b11001100) };
+    Bit<uint8_t> b[] = { Bit<uint8_t>(0b10101010) };
+    BitSequence<uint8_t> seqA(a, 1);
+    BitSequence<uint8_t> seqB(b, 1);
+    BitSequence<uint8_t> res = seqA & seqB;
+    EXPECT_EQ(res.ToString(), "[0, 0, 0, 1, 0, 0, 0, 1]");
+}

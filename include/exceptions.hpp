@@ -35,4 +35,18 @@ public:
     }
 };
 
+class InvalidInputException : public std::exception {
+private:
+    std::string message;
+public:
+    InvalidInputException(const std::string& error_description) {
+        message = std::format("Неверный ввод: {}", error_description);
+    }
+    
+    const char* what() const noexcept override {
+        return message.c_str();
+    }
+};
+
+
 }

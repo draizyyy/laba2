@@ -3,6 +3,9 @@
 #include "core/dynamic_array.hpp"
 #include "core/linked_list.hpp"
 #include "option.hpp"
+#include <string>
+#include <sstream>
+#include "exceptions.hpp"
 
 namespace myLib {
 
@@ -152,6 +155,80 @@ public:
             }
         }
         return Option<T>();
+    }
+
+    Sequence<double>* GetMinMaxAvg() {
+        if (GetLength() == 0) {
+            throw EmptyCollectionException("ArraySequence");
+        }
+        
+        T minVal = Get(0);
+        T maxVal = Get(0);
+        double sum = 0;
+        
+        for (const auto& el : *this) {
+            if (el < minVal) minVal = el;
+            if (el > maxVal) maxVal = el;
+            sum += static_cast<double>(el);
+        }
+        
+        double avg = sum / GetLength();
+        
+        Sequence<double>* res = new ArraySequence<double>();
+        res->Append(minVal);
+        res->Append(maxVal);
+        res->Append(avg);
+        return res;
+    }
+
+    Sequence<Sequence<T>*>* GetPrefixes() {
+        auto result = new ArraySequence<Sequence<T>*>();
+        size_t i = 0;
+        for (const auto& el : *this) {
+            result->Append(GetSubsequence(0, i++));
+        }
+        return result;
+    }
+
+    Sequence<T>* GetReflectionSum() {
+        auto result = new ArraySequence<T>();
+        size_t len = GetLength();
+        size_t i = 0;
+        
+        for (const auto& el : *this) {
+            result->Append(el + Get(len - 1 - i));
+            i++;
+        }
+        return result;
+    }
+
+    std::string ToString() override {
+        std::ostringstream oss;
+        oss << "[";
+        bool first = true;
+        for (const auto& el : *this) {
+            if (!first) oss << ", ";
+            oss << el;
+            first = false;
+        }
+        oss << "]";
+        return oss.str();
+    }
+
+    T FromString(const std::string& s) {
+        if (s.empty()) {
+            throw InvalidInputException("Строка пустая");
+        }
+        
+        std::istringstream iss(s);  
+        T value;
+        iss >> value;
+
+        if (iss.fail()) {
+            throw InvalidInputException("Неверный формат данных");
+        }
+        
+        return value;
     }
 };
 

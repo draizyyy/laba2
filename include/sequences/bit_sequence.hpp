@@ -3,6 +3,8 @@
 #include "core/dynamic_array.hpp"
 #include "exceptions.hpp"
 #include "core/linked_list.hpp"
+#include <string>
+#include "exceptions.hpp"
 
 namespace myLib {
 
@@ -99,6 +101,19 @@ public:
         return value != other.value;
     }
 };
+
+template<typename T>
+std::istream& operator>>(std::istream& is, Bit<T>& b) {
+    T val;
+    is >> val;
+    b.SetValue(val);   
+    return is;
+}
+template<typename T>
+std::ostream& operator<<(std::ostream& os, const Bit<T>& b) {
+    os << b.GetValue();
+    return os;
+}
 
 template <typename T> class BitSequence;
 
@@ -260,7 +275,7 @@ public:
     }
 
     Sequence<Bit<T>>* Where(bool (*predicate)(Bit<T>)) {
-        ListSequence<Bit<T>>* res = new ListSequence<Bit<T>>();
+        ArraySequence<Bit<T>>* res = new ArraySequence<Bit<T>>();
         for (size_t i = 0; i < data->GetSize(); i++) {
             Bit<T> val = data->Get(i);
             if (predicate(val)) {
@@ -322,6 +337,41 @@ public:
             res.data->Set(i, ~data->Get(i));
         }
         return res;
+        
+    }
+
+    std::string ToString() override {
+        std::string res = "[";
+        size_t totalBits = GetLength() * Bit<T>::BitCount();
+        for (size_t i = 0; i < totalBits; i++) {
+            if (i > 0) {
+                res += ", ";
+            }
+            res += ((*this)[i] ? '1' : '0');
+        }
+        res += "]";
+        return res;
+    }
+
+    Bit<T> FromString(const std::string& s) override {
+        if (s.empty()) {
+            throw InvalidInputException("Строка пустая");
+        }
+
+        T value = 0;
+        for (char c : s) {
+            if (c == '0') {
+                value <<= 1;
+            } else if (c == '1') {
+                value = (value << 1) | static_cast<T>(1);
+            } else {
+                std::string err = "Неверный символ '";
+                err += c;
+                err += "'. Допустимы только '0' и '1'";
+                throw InvalidInputException(err);
+            }
+        }
+        return Bit<T>(value);
     }
 };
 
