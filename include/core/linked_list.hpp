@@ -44,7 +44,7 @@ public:
         using pointer = T*;
         using reference = T&;
 
-        explicit Iterator(Node* node) : current(node) {}
+        Iterator(Node* node) : current(node) {}
 
         Iterator& operator++() { 
             if (current) current = current->next; 

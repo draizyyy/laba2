@@ -353,6 +353,10 @@ public:
         return res;
     }
 
+    std::string ToString(Bit<T> bit) override {
+        return bit ? "1" : "0";
+    }
+
     Bit<T> FromString(const std::string& s) override {
         if (s.empty()) {
             throw InvalidInputException("Строка пустая");

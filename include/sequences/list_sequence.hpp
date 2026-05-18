@@ -4,11 +4,17 @@
 #include "option.hpp"
 #include <string>
 #include <sstream>
+#include <format>
 #include "exceptions.hpp"
 
 namespace myLib {
 template<typename T>
 class ListSequence : public Sequence<T> {
+private:
+    std::string elementToString(T el) {
+        return std::format("{}", el);
+    }
+
 protected:
     LinkedList<T>* data;
     size_t size{};
@@ -190,11 +196,15 @@ public:
         bool first = true;
         for (const auto& el : *this) {
             if (!first) oss << ", ";
-            oss << el;
+            oss << elementToString(el);
             first = false;
         }
         oss << "]";
         return oss.str();
+    }
+
+    std::string ToString(T elem) override {
+        return elementToString(elem);
     }
 
     T FromString(const std::string& s) {

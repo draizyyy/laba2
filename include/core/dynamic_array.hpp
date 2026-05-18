@@ -21,7 +21,7 @@ public:
         using pointer = T*;
         using reference = T&;
 
-        explicit Iterator(T* curr) : current(curr) {}
+        Iterator(T* curr) : current(curr) {}
 
         Iterator& operator++() { 
             ++current; 

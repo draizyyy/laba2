@@ -5,12 +5,17 @@
 #include "option.hpp"
 #include <string>
 #include <sstream>
+#include <format>
 #include "exceptions.hpp"
 
 namespace myLib {
 
 template<typename T>
 class ArraySequence : public Sequence<T> {
+private:
+    std::string elementToString(T el) {
+        return std::format("{}", el);
+    }
 protected:
     DynamicArray<T>* data;
     virtual ArraySequence<T>* Clone() {
@@ -208,19 +213,23 @@ public:
         bool first = true;
         for (const auto& el : *this) {
             if (!first) oss << ", ";
-            oss << el;
+            oss << el; 
             first = false;
         }
         oss << "]";
         return oss.str();
     }
 
-    T FromString(const std::string& s) {
+    std::string ToString(T elem) override {
+        return elementToString(elem);
+    }
+
+    T FromString(const std::string& s) override {
         if (s.empty()) {
             throw InvalidInputException("Строка пустая");
         }
         
-        std::istringstream iss(s);  
+        std::istringstream iss(s);
         T value;
         iss >> value;
 
