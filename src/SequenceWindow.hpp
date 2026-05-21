@@ -40,6 +40,7 @@ private slots:
     void onApplyReduce();
     void onSelectSequence();
     void onConcat();
+    void onClearSequence();
 
     void print(const std::string& s);
     void print(const QString s);

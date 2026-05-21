@@ -26,6 +26,7 @@ SequenceWindow::SequenceWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui
     connect(ui->pushButton_15, &QPushButton::clicked, this, &SequenceWindow::onGetSubsequence);
     connect(ui->pushButton_8, &QPushButton::clicked, this, &SequenceWindow::onSelectSequence);
     connect(ui->pushButton_10, &QPushButton::clicked, this, &SequenceWindow::onConcat);
+    connect(ui->pushButton_16, &QPushButton::clicked, this, &SequenceWindow::onClearSequence); // <--- НОВОЕ
 }
 
 SequenceWindow::~SequenceWindow() {
@@ -43,7 +44,6 @@ void SequenceWindow::onCreateSequence() {
     } else if (s == "На связном списке") {
         new_seq = new ListSequence<int>();
     }
-
 
     if (!new_seq) {
         print(QString("Неверный тип последовательности!"));
@@ -375,3 +375,36 @@ void SequenceWindow::onApplyReduce() {
     }
 }
 
+
+void SequenceWindow::onClearSequence() {
+    if (!current_seq) {
+        print(QString("Нет выбранной последовательности для удаления!"));
+        return;
+    }
+
+    bool isSeq1 = (current_seq == seq1);
+    bool isSeq2 = (current_seq == seq2);
+    int currentIndex = ui->comboBox_3->currentIndex();
+
+    delete current_seq;
+
+    if (isSeq1) seq1 = nullptr;
+    if (isSeq2) seq2 = nullptr;
+    current_seq = nullptr;
+
+    if (currentIndex >= 0 && currentIndex < ui->comboBox_3->count()) {
+        ui->comboBox_3->removeItem(currentIndex);
+    }
+
+    if (seq1) {
+        current_seq = seq1;
+        ui->comboBox_3->setCurrentIndex(0);
+        print(QString("Последовательность удалена. Выбрана оставшаяся."));
+    } else if (seq2) {
+        current_seq = seq2;
+        ui->comboBox_3->setCurrentIndex(0);
+        print(QString("Последовательность удалена. Выбрана оставшаяся."));
+    } else {
+        print(QString("Все последовательности удалены."));
+    }
+}
