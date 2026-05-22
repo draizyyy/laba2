@@ -26,7 +26,7 @@ SequenceWindow::SequenceWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui
     connect(ui->pushButton_15, &QPushButton::clicked, this, &SequenceWindow::onGetSubsequence);
     connect(ui->pushButton_8, &QPushButton::clicked, this, &SequenceWindow::onSelectSequence);
     connect(ui->pushButton_10, &QPushButton::clicked, this, &SequenceWindow::onConcat);
-    connect(ui->pushButton_16, &QPushButton::clicked, this, &SequenceWindow::onClearSequence); // <--- НОВОЕ
+    connect(ui->pushButton_16, &QPushButton::clicked, this, &SequenceWindow::onClearSequence);
 }
 
 SequenceWindow::~SequenceWindow() {
