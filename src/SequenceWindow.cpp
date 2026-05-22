@@ -382,28 +382,33 @@ void SequenceWindow::onClearSequence() {
         return;
     }
 
-    bool isSeq1 = (current_seq == seq1);
-    bool isSeq2 = (current_seq == seq2);
-    int currentIndex = ui->comboBox_3->currentIndex();
-
-    delete current_seq;
-
-    if (isSeq1) seq1 = nullptr;
-    if (isSeq2) seq2 = nullptr;
+    if (current_seq == seq1) {
+        delete seq1;
+        seq1 = nullptr;
+    } else if (current_seq == seq2) {
+        delete seq2;
+        delete seq2; 
+        seq2 = nullptr;
+    }
     current_seq = nullptr;
 
-    if (currentIndex >= 0 && currentIndex < ui->comboBox_3->count()) {
-        ui->comboBox_3->removeItem(currentIndex);
+    ui->comboBox_3->clear();
+
+    if (seq1) {
+        ui->comboBox_3->addItem(QString("Последовательность 1"));
+    }
+    if (seq2) {
+        ui->comboBox_3->addItem(QString("Последовательность 2"));
     }
 
     if (seq1) {
         current_seq = seq1;
         ui->comboBox_3->setCurrentIndex(0);
-        print(QString("Последовательность удалена. Выбрана оставшаяся."));
+        print(QString("Последовательность удалена. Текущая: Последовательность 1"));
     } else if (seq2) {
         current_seq = seq2;
         ui->comboBox_3->setCurrentIndex(0);
-        print(QString("Последовательность удалена. Выбрана оставшаяся."));
+        print(QString("Последовательность удалена. Текущая: Последовательность 2"));
     } else {
         print(QString("Все последовательности удалены."));
     }
