@@ -16,20 +16,26 @@ public:
         delete m_seq;
     }
 
-    myLib::ArraySequence<int>* getSequence() const {
+    myLib::ArraySequence<int>* getSequence() {
         return m_seq;
     }
 
-    int rowCount(const QModelIndex &parent = QModelIndex()) const override {
-        if (parent.isValid() || !m_seq) return 0;
+    int rowCount(QModelIndex &parent = QModelIndex()) override {
+        if (parent.isValid() || !m_seq) {
+            return 0;
+        }
         return static_cast<int>(m_seq->GetLength());
     }
 
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override {
-        if (!index.isValid() || role != Qt::DisplayRole) return QVariant();
+    QVariant data(QModelIndex &index, int role = Qt::DisplayRole) override {
+        if (!index.isValid() || role != Qt::DisplayRole) {
+            return QVariant();
+        }
         
         size_t targetIndex = static_cast<size_t>(index.row());
-        if (targetIndex >= m_seq->GetLength()) return QVariant();
+        if (targetIndex >= m_seq->GetLength()) {
+            return QVariant();
+        }
         
         return m_seq->Get(targetIndex);
     }
@@ -55,7 +61,9 @@ public:
     }
 
     void clearAll() {
-        if (m_seq->GetLength() == 0) return;
+        if (m_seq->GetLength() == 0) {
+            return;
+        }
         beginRemoveRows(QModelIndex(), 0, rowCount() - 1);
         delete m_seq;
         m_seq = new myLib::MutableArraySequence<int>();

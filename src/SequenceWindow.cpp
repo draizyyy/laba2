@@ -69,7 +69,9 @@ void SequenceWindow::onAppendElement() {
 
     bool ok;
     int val = QInputDialog::getInt(this, "Вставка в конец", "Введите число:", 0, -99999, 99999, 1, &ok);
-    if (!ok) return;
+    if (!ok) {
+        return;
+    }
 
     m_models[currentIndex]->appendElement(val);
 }
@@ -146,7 +148,9 @@ void SequenceWindow::onApplyReduce() {
     QStringList options = {"Сумма элементов", "Произведение элементов"};
     bool ok;
     QString item = QInputDialog::getItem(this, "Выбор операции Reduce", "Выберите функцию свёртки:", options, 0, false, &ok);
-    if (!ok) return;
+    if (!ok) {
+        return;
+    }
 
     myLib::Sequence<int>* reducedSeqRaw = nullptr;
     QString opName;
