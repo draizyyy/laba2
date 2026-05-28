@@ -1,415 +1,215 @@
 #include "SequenceWindow.hpp"
-#include "sequences/array_sequence.hpp"
-#include "sequences/list_sequence.hpp"
-#include "sequences/bit_sequence.hpp" 
-#include "exceptions.hpp"
-#include <sstream>
-#include <format>
-#include <utils/functions.hpp>
+#include "ui_SequenceWindow.h"
+#include "SequenceModel.hpp"
+#include <sequences/array_sequence.hpp>
+#include <QVBoxLayout>
+#include <QInputDialog>
+#include <QMessageBox>
 
-using namespace myLib;
+int square(int x) { return x * x; }
+int multiplyByTen(int x) { return x * 10; }
+bool isEven(int x) { return x % 2 == 0; }
+bool isPositive(int x) { return x > 0; }
+int sumReducer(int acc, int x) { return acc + x; }
+int productReducer(int acc, int x) { return acc * x; }
 
-SequenceWindow::SequenceWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow), seq1(nullptr), seq2(nullptr), current_seq(nullptr) {
+SequenceWindow::SequenceWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::SequenceWindow) {
     ui->setupUi(this);
-    connect(ui->pushButton, &QPushButton::clicked, this, &SequenceWindow::onCreateSequence);
-    connect(ui->pushButton_2, &QPushButton::clicked, this, &SequenceWindow::onInsertEnd);
-    connect(ui->pushButton_3, &QPushButton::clicked, this, &SequenceWindow::onInsertStart);
-    connect(ui->pushButton_4, &QPushButton::clicked, this, &SequenceWindow::onInsertByIndex);
-    connect(ui->pushButton_5, &QPushButton::clicked, this, &SequenceWindow::onGetByIndex);
-    connect(ui->pushButton_6, &QPushButton::clicked, this, &SequenceWindow::onGetFirst);
-    connect(ui->pushButton_7, &QPushButton::clicked, this, &SequenceWindow::onGetLast);
-    connect(ui->pushButton_14, &QPushButton::clicked, this, &SequenceWindow::onGetLength);
-    connect(ui->pushButton_11, &QPushButton::clicked, this, &SequenceWindow::onApplyMap);
-    connect(ui->pushButton_12, &QPushButton::clicked, this, &SequenceWindow::onApplyWhere);
-    connect(ui->pushButton_13, &QPushButton::clicked, this, &SequenceWindow::onApplyReduce);
-    connect(ui->pushButton_9, &QPushButton::clicked, this, &SequenceWindow::onDisplaySequence);
-    connect(ui->pushButton_15, &QPushButton::clicked, this, &SequenceWindow::onGetSubsequence);
-    connect(ui->pushButton_8, &QPushButton::clicked, this, &SequenceWindow::onSelectSequence);
-    connect(ui->pushButton_10, &QPushButton::clicked, this, &SequenceWindow::onConcat);
-    connect(ui->pushButton_16, &QPushButton::clicked, this, &SequenceWindow::onClearSequence);
+    
+    connect(ui->pushButtonAddTab, &QPushButton::clicked, this, &SequenceWindow::onAddTab);
+    connect(ui->pushButtonPrepend, &QPushButton::clicked, this, &SequenceWindow::onPrependElement);
+    connect(ui->pushButtonAppend, &QPushButton::clicked, this, &SequenceWindow::onAppendElement);
+    connect(ui->pushButtonMap, &QPushButton::clicked, this, &SequenceWindow::onApplyMap);
+    connect(ui->pushButtonWhere, &QPushButton::clicked, this, &SequenceWindow::onApplyWhere);
+    connect(ui->pushButtonReduce, &QPushButton::clicked, this, &SequenceWindow::onApplyReduce);
+    connect(ui->pushButtonConcat, &QPushButton::clicked, this, &SequenceWindow::onConcat);
 }
 
 SequenceWindow::~SequenceWindow() {
-    delete seq1;
-    delete seq2;
+    for (auto model : m_models) {
+        delete model;
+    }
     delete ui;
 }
 
-void SequenceWindow::onCreateSequence() {
-    QString s = ui->comboBox->currentText();
-    Sequence<int>* new_seq = nullptr;
-
-    if (s == "На динамическом списке") {
-        new_seq = new ArraySequence<int>();
-    } else if (s == "На связном списке") {
-        new_seq = new ListSequence<int>();
-    }
-
-    if (!new_seq) {
-        print(QString("Неверный тип последовательности!"));
-        return;
-    }
-
-    if (!seq1) {
-        seq1 = new_seq;
-        current_seq = seq1;
-        ui->comboBox_3->addItem(QString::fromStdString(std::format("Последовательность 1 ({})", s.toStdString())));
-        ui->comboBox_3->setCurrentIndex(0);
-    } else if (!seq2) {
-        seq2 = new_seq;
-        current_seq = seq2;
-        ui->comboBox_3->addItem(QString::fromStdString(std::format("Последовательность 2 ({})", s.toStdString())));
-        ui->comboBox_3->setCurrentIndex(1);
-    } else {
-        print(QString("Можно создать максимум две последовательности!"));
-        delete new_seq;
-        return;
-    }
-
-    print(QString("Создано: ") + s);
-}
-
-QString tryCatch(std::function<void()> operation) {
-    try {
-        operation();
-        return "";
-    }
-    catch (InvalidInputException& e) {
-        return QString::fromStdString(std::format("Ошибка ввода: {}", e.what()));
-    }
-    catch (IndexOutOfRangeException& e) {
-        return QString::fromStdString(std::format("Ошибка индекса: {}", e.what()));
-    }
-    catch (EmptyCollectionException& e) {
-        return QString::fromStdString(std::format("Ошибка: {}", e.what()));
-    }
-    catch (const std::bad_alloc&) {
-        return QString("Ошибка: Последовательности разных типов!");
-    }
-    catch (const std::exception& e) {
-        return QString::fromStdString(std::format("Неизвестная ошибка: {}", e.what()));
-    }
-}
-
-void SequenceWindow::print(const std::string& s) {
-    ui->textEdit_2->setPlainText(QString::fromStdString(s));
-}
-
-void SequenceWindow::print(QString s) {
-    ui->textEdit_2->setPlainText(s);
-}
-
-QString SequenceWindow::getElem() {
-    return ui->lineEdit->text();
-}
-
-QString SequenceWindow::getIndex() {
-    return ui->lineEdit_2->text();
-}
-
-size_t SequenceWindow::FromString(const std::string& s) {
-    if (s.empty()) {
-        throw InvalidInputException("Строка ввода пустая");
-    }
+void SequenceWindow::onAddTab() {
+    m_tabCounter++;
     
-    std::istringstream iss(s);
-    int value;
-    iss >> value;
-
-    if (iss.fail()) {
-        throw InvalidInputException("Неверный формат ввода");
-    }
-
-    if (value < 0) {
-        throw InvalidInputException("Значение не может быть отрицательным");
-    }
+    QWidget *tabContent = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(tabContent);
+    QListView *listView = new QListView();
     
-    return value;
+    listView->setViewMode(QListView::IconMode);
+    listView->setGridSize(QSize(90, 90));
+    listView->setSpacing(8);
+
+    listView->setWrapping(true); 
+    listView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    
+    auto* newSeq = new myLib::MutableArraySequence<int>();
+    SequenceModel* newModel = new SequenceModel(newSeq, this);
+    listView->setModel(newModel);
+    
+    layout->addWidget(listView);
+    
+    int index = ui->tabWidgetSequences->addTab(tabContent, QString("Последовательность %1").arg(m_tabCounter));
+    
+    m_models[index] = newModel;
+    m_views[index] = listView;
+    
+    ui->tabWidgetSequences->setCurrentIndex(index);
 }
 
-void SequenceWindow::onInsertEnd() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
-    }
-    print(QString("Вставка в конец: " + getElem()));
-    QString error = tryCatch([this]() {
-        current_seq->Append(current_seq->FromString(getElem().toStdString()));
-        print(current_seq->ToString());
-    });
-    if (!error.isEmpty()) {
-        print(error);
-    }
+void SequenceWindow::onAppendElement() {
+    int currentIndex = ui->tabWidgetSequences->currentIndex();
+    if (currentIndex < 0) return;
+
+    bool ok;
+    int val = QInputDialog::getInt(this, "Вставка в конец", "Введите число:", 0, -99999, 99999, 1, &ok);
+    if (!ok) return;
+
+    m_models[currentIndex]->appendElement(val);
 }
 
-void SequenceWindow::onInsertStart() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
-    }
-    print("Вставка в начало: " + getElem());
-    QString error = tryCatch([this]() {
-        current_seq->Prepend(current_seq->FromString(getElem().toStdString()));
-        print(current_seq->ToString());
-    });
-    if (!error.isEmpty()) {
-        print(error);
-    }
-}
+void SequenceWindow::onPrependElement() {
+    int currentIndex = ui->tabWidgetSequences->currentIndex();
+    if (currentIndex < 0) return;
 
-void SequenceWindow::onInsertByIndex() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
-    }
-    print("Вставка по индексу " + getIndex() + ": " + getElem());
-    QString error = tryCatch([this]() {
-        current_seq->InsertAt(current_seq->FromString(getElem().toStdString()), FromString(getIndex().toStdString()));
-        print(current_seq->ToString());
-    });
-    if (!error.isEmpty()) {
-        print(error);
-    }
-}
+    bool ok;
+    int val = QInputDialog::getInt(this, "Вставка в начало", "Введите число:", 0, -99999, 99999, 1, &ok);
+    if (!ok) return;
 
-void SequenceWindow::onGetByIndex() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
-    }
-    QString error = tryCatch([this]() {
-        std::string s = getIndex().toStdString();
-        print("Элемент по индексу " + s + ": " + current_seq->ToString(current_seq->Get(FromString(s))));
-    });
-    if (!error.isEmpty()) {
-        print(error);
-    }
-}
-
-void SequenceWindow::onGetFirst() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
-    }
-    QString error = tryCatch([this]() {
-        print("Первый элемент: " + current_seq->ToString(current_seq->GetFirst()));
-    });
-    if (!error.isEmpty()) {
-        print(error);
-    }
-}
-
-void SequenceWindow::onGetLast() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
-    }
-    QString error = tryCatch([this]() {
-        print("Последний элемент получен: " + current_seq->ToString(current_seq->GetLast()));
-    });
-    if (!error.isEmpty()) {
-        print(error);
-    }
-}
-
-void SequenceWindow::onGetSubsequence() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
-    }
-    QString error = tryCatch([this]() {
-        size_t start = FromString(ui->lineEdit_3->text().toStdString());
-        size_t end = FromString(ui->lineEdit_4->text().toStdString());
-        
-        Sequence<int>* sub_seq = current_seq->GetSubsequence(start, end);
-        print(std::format("Подпоследовательность: {}", sub_seq->ToString()));
-        delete sub_seq;
-    });
-    if (!error.isEmpty()) {
-        print(error);
-    }
-}
-
-void SequenceWindow::onSelectSequence() {
-    int index = ui->comboBox_3->currentIndex();
-    if (index == 0 && seq1) {
-        current_seq = seq1;
-        print(QString("Текущая: Последовательность 1"));
-    } else if (index == 1 && seq2) {
-        current_seq = seq2;
-        print(QString("Текущая: Последовательность 2"));
-    }
-}
-
-void SequenceWindow::onConcat() {
-    if (!seq1 || !seq2) {
-        print(QString("Для склейки необходимо создать обе последовательности!"));
-        return;
-    }
-    QString error = tryCatch([this]() {
-        Sequence<int>* concat_seq = seq1->Concat(seq2);
-        print(std::format("Результат склейки: {}", concat_seq->ToString()));
-        delete concat_seq;
-    });
-    if (!error.isEmpty()) {
-        print(error);
-    }
-}
-
-void SequenceWindow::onDisplaySequence() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
-    }
-    print(std::format("Полный вывод последовательности: {}", current_seq->ToString()));
-}
-
-void SequenceWindow::onGetLength() {
-    if (!current_seq) { 
-        print(QString("Сначала создайте и выберите последовательность!")); 
-        return; 
-    }
-    print(std::format("Размер: {}", current_seq->GetLength()));
+    m_models[currentIndex]->prependElement(val);
 }
 
 void SequenceWindow::onApplyMap() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
+    int currentIndex = ui->tabWidgetSequences->currentIndex();
+    if (currentIndex < 0) return;
+
+    QStringList options = {"Возведение в квадрат (x^2)", "Умножить на 10 (x * 10)"};
+    bool ok;
+    QString item = QInputDialog::getItem(this, "Выбор функции Map", "Выберите операцию:", options, 0, false, &ok);
+    if (!ok) return;
+
+    auto* currentSeq = m_models[currentIndex]->getSequence();
+    myLib::Sequence<int>* mappedSeqRaw = nullptr;
+
+    if (item == options[0]) {
+        mappedSeqRaw = currentSeq->Map(square);
+    } else {
+        mappedSeqRaw = currentSeq->Map(multiplyByTen);
     }
 
-    QString choice = ui->comboBox_4->currentText();
-    int (*mapFunc)(int) = nullptr;
-
-    if (choice == "Прибавить 1") {
-        mapFunc = [](int x) { return x + 1; };
-    } else if (choice == "Возвести в квадрат") {
-        mapFunc = [](int x) { return x * x; };
-    } else if (choice == "Сделать отрицательным") {
-        mapFunc = [](int x) { return -x; };
-    }
-
-    if (!mapFunc) {
-        print(QString("Неизвестная функция Map!"));
-        return;
-    }
-
-    QString error = tryCatch([this, mapFunc]() {
-        Sequence<int>* mapped_seq = Map(current_seq, mapFunc);
-        
-        print(std::format("Результат Map: {}", mapped_seq->ToString()));
-        delete mapped_seq;
-    });
-    
-    if (!error.isEmpty()) {
-        print(error);
-    }
+    auto* mappedSeq = static_cast<myLib::ArraySequence<int>*>(mappedSeqRaw);
+    m_models[currentIndex]->updateModelData(mappedSeq);
 }
 
 void SequenceWindow::onApplyWhere() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
-        return;
+    int currentIndex = ui->tabWidgetSequences->currentIndex();
+    if (currentIndex < 0) return;
+
+    QStringList options = {"Только четные (x % 2 == 0)", "Только положительные (x > 0)"};
+    bool ok;
+    QString item = QInputDialog::getItem(this, "Выбор фильтра Where", "Выберите условие:", options, 0, false, &ok);
+    if (!ok) return;
+
+    auto* currentSeq = m_models[currentIndex]->getSequence();
+    myLib::Sequence<int>* filteredSeqRaw = nullptr;
+
+    if (item == options[0]) {
+        filteredSeqRaw = currentSeq->Where(isEven);
+    } else {
+        filteredSeqRaw = currentSeq->Where(isPositive);
     }
 
-    QString choice = ui->comboBox_5->currentText();
-    bool (*predicate)(int) = nullptr;
-
-    if (choice == "Только чётные") {
-        predicate = [](int x) { return x % 2 == 0; };
-    } else if (choice == "Только положительные") {
-        predicate = [](int x) { return x > 0; };
-    } else if (choice == "Кратные 3") {
-        predicate = [](int x) { return x % 3 == 0; };
-    }
-
-    if (!predicate) {
-        print(QString("Неизвестный предикат Where!"));
-        return;
-    }
-
-    QString error = tryCatch([this, predicate]() {
-        Sequence<int>* filtered_seq = myLib::Where(current_seq, predicate);
-        
-        print(std::format("Результат Where: {}", filtered_seq->ToString()));
-        delete filtered_seq;
-    });
-    
-    if (!error.isEmpty()) {
-        print(error);
-    }
+    auto* filteredSeq = static_cast<myLib::ArraySequence<int>*>(filteredSeqRaw);
+    m_models[currentIndex]->updateModelData(filteredSeq);
 }
 
 void SequenceWindow::onApplyReduce() {
-    if (!current_seq) {
-        print(QString("Сначала создайте и выберите последовательность!"));
+    int currentIndex = ui->tabWidgetSequences->currentIndex();
+    if (currentIndex < 0) {
         return;
     }
 
-    QString choice = ui->comboBox_6->currentText();
-    int (*reduceFunc)(int, int) = nullptr;
-    int value = 0;
-
-    if (choice == "Сумма элементов") {
-        reduceFunc = [](int acc, int x) { return acc + x; };
-        value = 0;
-    } else if (choice == "Произведение элементов") {
-        reduceFunc = [](int acc, int x) { return acc * x; };
-        value = 1;
-    }
-
-    if (!reduceFunc) {
-        print(QString("Неизвестная функция Reduce!"));
+    auto* currentSeq = m_models[currentIndex]->getSequence();
+    if (currentSeq->GetLength() == 0) {
+        QMessageBox::warning(this, "Внимание", "Последовательность пуста.");
         return;
     }
 
-    QString error = tryCatch([this, reduceFunc, value]() {
-        Sequence<int>* reduced_seq = myLib::Reduce(current_seq, reduceFunc, value);
-        
-        print(std::format("Результат Reduce: {}", reduced_seq->ToString()));
-        delete reduced_seq;
-    });
+    QStringList options = {"Сумма элементов", "Произведение элементов"};
+    bool ok;
+    QString item = QInputDialog::getItem(this, "Выбор операции Reduce", "Выберите функцию свёртки:", options, 0, false, &ok);
+    if (!ok) return;
+
+    myLib::Sequence<int>* reducedSeqRaw = nullptr;
+    QString opName;
+
+    if (item == options[0]) {
+        reducedSeqRaw = currentSeq->Reduce(sumReducer, 0);
+        opName = "Сумма элементов";
+    } else {
+        reducedSeqRaw = currentSeq->Reduce(productReducer, 1);
+        opName = "Произведение элементов";
+    }
     
-    if (!error.isEmpty()) {
-        print(error);
-    }
+    int result = reducedSeqRaw->Get(0);
+    delete reducedSeqRaw;
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Результат");
+    msgBox.setIcon(QMessageBox::NoIcon);
+    msgBox.setText(QString("Операция: %1\nРезультат: %2").arg(opName).arg(result));
+    msgBox.exec();
 }
 
-
-void SequenceWindow::onClearSequence() {
-    if (!current_seq) {
-        print(QString("Нет выбранной последовательности для удаления!"));
+void SequenceWindow::onConcat() {
+    if (ui->tabWidgetSequences->count() < 2) {
+        QMessageBox::warning(this, "Внимание", "Для склейки необходимо иметь хотя бы две вкладки.");
         return;
     }
 
-    if (current_seq == seq1) {
-        delete seq1;
-        seq1 = nullptr;
-    } else if (current_seq == seq2) {
-        delete seq2;
-        delete seq2; 
-        seq2 = nullptr;
-    }
-    current_seq = nullptr;
-
-    ui->comboBox_3->clear();
-
-    if (seq1) {
-        ui->comboBox_3->addItem(QString("Последовательность 1"));
-    }
-    if (seq2) {
-        ui->comboBox_3->addItem(QString("Последовательность 2"));
+    QStringList tabs;
+    for (int i = 0; i < ui->tabWidgetSequences->count(); ++i) {
+        tabs << ui->tabWidgetSequences->tabText(i);
     }
 
-    if (seq1) {
-        current_seq = seq1;
-        ui->comboBox_3->setCurrentIndex(0);
-        print(QString("Последовательность удалена. Текущая: Последовательность 1"));
-    } else if (seq2) {
-        current_seq = seq2;
-        ui->comboBox_3->setCurrentIndex(0);
-        print(QString("Последовательность удалена. Текущая: Последовательность 2"));
-    } else {
-        print(QString("Все последовательности удалены."));
-    }
+    bool ok1, ok2;
+    QString tab1 = QInputDialog::getItem(this, "Склеивание", "Выберите первую последовательность:", tabs, 0, false, &ok1);
+    if (!ok1) return;
+
+    QString tab2 = QInputDialog::getItem(this, "Склеивание", "Выберите вторую последовательность:", tabs, 0, false, &ok2);
+    if (!ok2) return;
+
+    int idx1 = tabs.indexOf(tab1);
+    int idx2 = tabs.indexOf(tab2);
+
+    auto* seq1 = m_models[idx1]->getSequence();
+    auto* seq2 = m_models[idx2]->getSequence();
+
+    myLib::Sequence<int>* concatResultRaw = seq1->Concat(seq2);
+    auto* concatResult = static_cast<myLib::ArraySequence<int>*>(concatResultRaw);
+
+    m_tabCounter++;
+    QWidget *tabContent = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(tabContent);
+    QListView *listView = new QListView();
+    
+    listView->setViewMode(QListView::IconMode);
+    listView->setGridSize(QSize(90, 90)); 
+    listView->setSpacing(8);
+
+    listView->setWrapping(true);
+    listView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    SequenceModel* newModel = new SequenceModel(concatResult, this);
+    listView->setModel(newModel);
+    layout->addWidget(listView);
+
+    int newIndex = ui->tabWidgetSequences->addTab(tabContent, QString("Результат Concat %1").arg(m_tabCounter));
+    m_models[newIndex] = newModel;
+    m_views[newIndex] = listView;
+
+    ui->tabWidgetSequences->setCurrentIndex(newIndex);
 }

@@ -1,52 +1,30 @@
 #pragma once
 #include <QMainWindow>
-#include <QPushButton>
-#include <QComboBox>
-#include <QLineEdit>
-#include <QTextEdit>
-#include <cstdint>
-#include "ui_sequencewindow.h"
-#include <sequences/sequence.hpp>
+#include <QListView>
+#include <QMap>
 
-using namespace myLib;
+namespace Ui { class SequenceWindow; }
+class SequenceModel;
 
 class SequenceWindow : public QMainWindow {
     Q_OBJECT
 
-private:
-    Sequence<int>* seq1{};
-    Sequence<int>* seq2{};
-    Sequence<int>* current_seq{};
-
-    size_t FromString(const std::string& s);
-
 public:
     explicit SequenceWindow(QWidget *parent = nullptr);
-    ~SequenceWindow();
+    ~SequenceWindow() override;
 
 private slots:
-    void onCreateSequence();
-    void onInsertEnd();
-    void onInsertStart();
-    void onInsertByIndex();
-    void onGetByIndex();
-    void onGetFirst();
-    void onGetLast();
-    void onGetLength();
-    void onDisplaySequence();
-    void onGetSubsequence();
+    void onAddTab();
+    void onAppendElement();
+    void onPrependElement();
     void onApplyMap();
     void onApplyWhere();
     void onApplyReduce();
-    void onSelectSequence();
     void onConcat();
-    void onClearSequence();
-
-    void print(const std::string& s);
-    void print(const QString s);
-    QString getElem();
-    QString getIndex();
 
 private:
-    Ui::MainWindow *ui;  
+    Ui::SequenceWindow *ui;
+    QMap<int, SequenceModel*> m_models;
+    QMap<int, QListView*> m_views;
+    size_t m_tabCounter = 0;
 };

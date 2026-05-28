@@ -151,6 +151,33 @@ public:
     //     InsertAt(item, 0);
     // }
 
+    void DeleteAt(size_t index) {
+        if (index >= size) {
+            throw IndexOutOfRangeException(index, size);
+        }
+
+        if (size == 1) {
+            delete[] data;
+            data = nullptr;
+            size = 0;
+            return;
+        }
+
+        T* newData = new T[size - 1];
+        size_t i = 0;
+        size_t curr = 0;
+        for (auto& el : *this) {
+            if (i != index) {
+                newData[curr++] = el;
+            }
+            i++;
+        }
+
+        delete[] data;
+        data = newData;
+        size--;
+    }
+
     void Resize(size_t newSize) {
         T* newData = new T[newSize];
         size_t copySize = (size > newSize) ? newSize : size;

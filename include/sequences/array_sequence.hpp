@@ -2,7 +2,6 @@
 #include "sequence.hpp"
 #include "core/dynamic_array.hpp"
 #include "core/linked_list.hpp"
-#include "option.hpp"
 #include <string>
 #include <sstream>
 #include <format>
@@ -10,12 +9,15 @@
 
 namespace myLib {
 
+template<typename T> struct is_ptr { 
+    static constexpr bool value = false; 
+};
+template<typename T> struct is_ptr<T*> { 
+    static constexpr bool value = true;
+};
+
 template<typename T>
 class ArraySequence : public Sequence<T> {
-private:
-    std::string elementToString(T el) {
-        return std::format("{}", el);
-    }
 protected:
     DynamicArray<T>* data;
     virtual ArraySequence<T>* Clone() {
@@ -42,6 +44,14 @@ protected:
         seq->data->InsertAt(item, index);
         return seq;
     }
+
+    // Sequence<T>* DeleteAtDefault(size_t index, ArraySequence<T>* seq) {
+    //     if (index >= seq->GetLength()) {
+    //         throw IndexOutOfRangeException(index, seq->GetLength());
+    //     }
+    //     seq->data->DeleteAt(index); 
+    //     return seq;
+    // }
 
     Sequence<T>* ConcatDefault(Sequence<T>* list, ArraySequence<T>* seq) {
         auto arr = static_cast<ArraySequence<T>*>(list); 
@@ -91,6 +101,10 @@ public:
         return InsertAtDefault(item, index, Instance());
     }
 
+    // Sequence<T>* DeleteAt(size_t index) override {
+    //     return DeleteAtDefault(index, Instance());
+    // }
+
     Sequence<T>* Concat(Sequence<T>* list) override {
         return ConcatDefault(list, Clone());
     }
@@ -102,12 +116,13 @@ public:
         return data->end(); 
     }
 
-    template<typename T2>
+        template<typename T2>
     Sequence<T2>* Map(T2 (*func)(T)) {
         size_t len = GetLength();
         T2* t2 = new T2[len];
-        for (size_t i = 0; i < len; i++) {
-            t2[i] = func(Get(i));
+        size_t i = 0;
+        for (const auto& val : *this) {
+            t2[i++] = func(val);
         }
         Sequence<T2>* seq = new ArraySequence<T2>(t2, len);
         delete[] t2;
@@ -115,13 +130,11 @@ public:
     }
 
     Sequence<T>* Where(bool (*predicate)(T)) {
-        size_t len = GetLength();
-        T* t = new T[len];
+        T* t = new T[GetLength()];
         size_t count = 0;
-        for (size_t i = 0; i < len; i++) {
-            T t2 = Get(i);
-            if (predicate(t2)) {
-                t[count++] = t2;
+        for (const auto& val : *this) {
+            if (predicate(val)) {
+                t[count++] = val;
             }
         }
         Sequence<T>* seq = new ArraySequence<T>(t, count);
@@ -132,79 +145,47 @@ public:
     template<typename T2>
     Sequence<T2>* Reduce(T2 (*func)(T2, T), T2 t2) {
         T2 t = t2;
-        size_t len = GetLength();
-        for (size_t i = 0; i < len; i++) {
-            t = func(t, Get(i));
+        for (const auto& val : *this) {
+            t = func(t, val);
         }
-        T2 arr[1] = {t};
+        T2 arr[1] = { t };
         return new ArraySequence<T2>(arr, 1);
     }
-
-    Option<T> GetFirst(bool (*predicate)(T))  {
-        size_t len = GetLength();
-        for (size_t i = 0; i < len; i++) {
-            T t = Get(i);
-            if (predicate == nullptr || predicate(t)) {
-                return Option<T>(t);
+    template<typename T, bool IsPointer>
+    struct StringConverter {
+        static T parse(const std::string& s) {
+            if (s.empty()) {
+                throw InvalidInputException("Строка пустая");
             }
-        }
-        return Option<T>();
-    }
-
-    Option<T> GetLast(bool (*predicate)(T)) {
-        size_t len = GetLength();
-        for (size_t i = len - 1; i >= 0; i--) {
-            T t = Get(i);
-            if (predicate == nullptr || predicate(t)) {
-                return Option<T>(t);
+            std::istringstream iss(s);
+            T value;
+            iss >> value;
+            if (iss.fail()) {
+                throw InvalidInputException("Неверный формат данных");
             }
+            return value;
         }
-        return Option<T>();
+        static std::string format(T el) {
+            return std::format("{}", el);
+        }
+    };
+
+    template<typename T>
+    struct StringConverter<T, true> {
+        static T parse(const std::string& s) {
+            throw InvalidInputException("Метод не поддерживается для указателей");
+        }
+        static std::string format(T el) {
+            return "[указатель]";
+        }
+    };
+    
+    std::string elementToString(T el) {
+        return StringConverter<T, std::is_pointer_v<T>>::format(el);
     }
 
-    Sequence<double>* GetMinMaxAvg() {
-        if (GetLength() == 0) {
-            throw EmptyCollectionException("ArraySequence");
-        }
-        
-        T minVal = Get(0);
-        T maxVal = Get(0);
-        double sum = 0;
-        
-        for (const auto& el : *this) {
-            if (el < minVal) minVal = el;
-            if (el > maxVal) maxVal = el;
-            sum += static_cast<double>(el);
-        }
-        
-        double avg = sum / GetLength();
-        
-        Sequence<double>* res = new ArraySequence<double>();
-        res->Append(minVal);
-        res->Append(maxVal);
-        res->Append(avg);
-        return res;
-    }
-
-    Sequence<Sequence<T>*>* GetPrefixes() {
-        auto result = new ArraySequence<Sequence<T>*>();
-        size_t i = 0;
-        for (const auto& el : *this) {
-            result->Append(GetSubsequence(0, i++));
-        }
-        return result;
-    }
-
-    Sequence<T>* GetReflectionSum() {
-        auto result = new ArraySequence<T>();
-        size_t len = GetLength();
-        size_t i = 0;
-        
-        for (const auto& el : *this) {
-            result->Append(el + Get(len - 1 - i));
-            i++;
-        }
-        return result;
+    std::string ToString(T elem) override {
+        return elementToString(elem);
     }
 
     std::string ToString() override {
@@ -213,31 +194,15 @@ public:
         bool first = true;
         for (const auto& el : *this) {
             if (!first) oss << ", ";
-            oss << el; 
+            oss << elementToString(el);
             first = false;
         }
         oss << "]";
         return oss.str();
     }
 
-    std::string ToString(T elem) override {
-        return elementToString(elem);
-    }
-
     T FromString(const std::string& s) override {
-        if (s.empty()) {
-            throw InvalidInputException("Строка пустая");
-        }
-        
-        std::istringstream iss(s);
-        T value;
-        iss >> value;
-
-        if (iss.fail()) {
-            throw InvalidInputException("Неверный формат данных");
-        }
-        
-        return value;
+        return StringConverter<T, std::is_pointer_v<T>>::parse(s);
     }
 };
 

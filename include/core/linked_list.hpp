@@ -220,6 +220,39 @@ public:
         prevNode->next = node;
     }
 
+    void DeleteAt(size_t index) {
+        if (!head) {
+            throw EmptyCollectionException("LinkedList");
+        }
+
+        Node* target = head;
+        for (size_t i = 0; i < index; i++) {
+            if (!target->next) {
+                throw IndexOutOfRangeException(index, i);
+            }
+            target = target->next;
+        }
+
+        if (target == head && target == tail) {
+            head = nullptr;
+            tail = nullptr;
+        }
+        else if (target == head) {
+            head = head->next;
+            head->prev = nullptr;
+        }
+        else if (target == tail) {
+            tail = tail->prev;
+            tail->next = nullptr;
+        }
+        else {
+            target->prev->next = target->next;
+            target->next->prev = target->prev;
+        }
+
+        delete target;
+    }
+
     LinkedList<T>* Concat(LinkedList<T>* list) {
         LinkedList<T>* newList = new LinkedList<T>();
         for (auto& el : *this) {
