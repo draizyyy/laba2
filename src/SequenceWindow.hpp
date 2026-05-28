@@ -21,6 +21,10 @@ private slots:
     void onApplyWhere();
     void onApplyReduce();
     void onConcat();
+    void onGetFirst();    
+    void onGetLast();  
+    void onGetLength();
+    
 
 private:
     Ui::SequenceWindow *ui;

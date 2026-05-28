@@ -5,12 +5,6 @@
   <property name="styleSheet">
    <string notr="true">
     QTabBar::tab { min-width: 120px; padding: 8px; }
-    QListView { background: transparent; border: none; qproperty-spacing: 8; }
-   </string>
-  </property>
-   <property name="styleSheet">
-   <string notr="true">
-    QTabBar::tab { min-width: 120px; padding: 8px; }
     QListView { background: transparent; border: none; }
    </string>
   </property>
@@ -80,16 +74,16 @@
     </item>
     <item>
      <widget class="QTabWidget" name="tabWidgetSequences">
-        <property name="documentMode">
-         <bool>true</bool>
-        </property>
-        <property name="tabsClosable">
-         <bool>false</bool>
-        </property>
-        <property name="movable">
-         <bool>true</bool>
-        </property>
-       </widget>
+      <property name="documentMode">
+       <bool>true</bool>
+      </property>
+      <property name="tabsClosable">
+       <bool>false</bool>
+      </property>
+      <property name="movable">
+       <bool>true</bool>
+      </property>
+     </widget>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayoutButtons">
@@ -125,6 +119,54 @@
         </property>
         <property name="text">
          <string>В конец</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonGetFirst">
+        <property name="minimumSize">
+         <size>
+          <width>110</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton { background-color: #6366f1; color: white; border-radius: 6px; font-weight: 500; font-size: 14px; } QPushButton:hover { background-color: #4f46e5; }</string>
+        </property>
+        <property name="text">
+         <string>GetFirst</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonGetLast">
+        <property name="minimumSize">
+         <size>
+          <width>110</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton { background-color: #6366f1; color: white; border-radius: 6px; font-weight: 500; font-size: 14px; } QPushButton:hover { background-color: #4f46e5; }</string>
+        </property>
+        <property name="text">
+         <string>GetLast</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonGetLength">
+        <property name="minimumSize">
+         <size>
+          <width>110</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton { background-color: #6366f1; color: white; border-radius: 6px; font-weight: 500; font-size: 14px; } QPushButton:hover { background-color: #4f46e5; }</string>
+        </property>
+        <property name="text">
+         <string>GetLength</string>
         </property>
        </widget>
       </item>

@@ -23,6 +23,9 @@ SequenceWindow::SequenceWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui
     connect(ui->pushButtonWhere, &QPushButton::clicked, this, &SequenceWindow::onApplyWhere);
     connect(ui->pushButtonReduce, &QPushButton::clicked, this, &SequenceWindow::onApplyReduce);
     connect(ui->pushButtonConcat, &QPushButton::clicked, this, &SequenceWindow::onConcat);
+    connect(ui->pushButtonGetFirst, &QPushButton::clicked, this, &SequenceWindow::onGetFirst);
+    connect(ui->pushButtonGetLast, &QPushButton::clicked, this, &SequenceWindow::onGetLast);
+    connect(ui->pushButtonGetLength, &QPushButton::clicked, this, &SequenceWindow::onGetLength);
 }
 
 SequenceWindow::~SequenceWindow() {
@@ -106,7 +109,9 @@ void SequenceWindow::onApplyMap() {
 
 void SequenceWindow::onApplyWhere() {
     int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) return;
+    if (currentIndex < 0) {
+        return;
+    }
 
     QStringList options = {"Только четные (x % 2 == 0)", "Только положительные (x > 0)"};
     bool ok;
@@ -177,10 +182,14 @@ void SequenceWindow::onConcat() {
 
     bool ok1, ok2;
     QString tab1 = QInputDialog::getItem(this, "Склеивание", "Выберите первую последовательность:", tabs, 0, false, &ok1);
-    if (!ok1) return;
+    if (!ok1) {
+        return;
+    }
 
     QString tab2 = QInputDialog::getItem(this, "Склеивание", "Выберите вторую последовательность:", tabs, 0, false, &ok2);
-    if (!ok2) return;
+    if (!ok2) {
+        return;
+    }
 
     int idx1 = tabs.indexOf(tab1);
     int idx2 = tabs.indexOf(tab2);
@@ -212,4 +221,58 @@ void SequenceWindow::onConcat() {
     m_views[newIndex] = listView;
 
     ui->tabWidgetSequences->setCurrentIndex(newIndex);
+}
+
+void SequenceWindow::onGetFirst() {
+    int currentIndex = ui->tabWidgetSequences->currentIndex();
+    if (currentIndex < 0) {
+        return;
+    }
+
+    auto* currentSeq = m_models[currentIndex]->getSequence();
+    if (currentSeq->GetLength() == 0) {
+        QMessageBox::warning(this, "Внимание", "Последовательность пуста.");
+        return;
+    }
+
+    int firstValue = currentSeq->GetFirst();
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Результат GetFirst");
+    msgBox.setIcon(QMessageBox::NoIcon);
+    msgBox.setText(QString("Первый элемент: %1").arg(firstValue));
+    msgBox.exec();
+}
+
+void SequenceWindow::onGetLast() {
+    int currentIndex = ui->tabWidgetSequences->currentIndex();
+    if (currentIndex < 0) return;
+
+    auto* currentSeq = m_models[currentIndex]->getSequence();
+    if (currentSeq->GetLength() == 0) {
+        QMessageBox::warning(this, "Внимание", "Последовательность пуста.");
+        return;
+    }
+
+    int lastValue = currentSeq->GetLast();
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Результат GetLast");
+    msgBox.setIcon(QMessageBox::NoIcon);
+    msgBox.setText(QString("Последний элемент: %1").arg(lastValue));
+    msgBox.exec();
+}
+
+void SequenceWindow::onGetLength() {
+    int currentIndex = ui->tabWidgetSequences->currentIndex();
+    if (currentIndex < 0) return;
+
+    auto* currentSeq = m_models[currentIndex]->getSequence();
+    size_t length = currentSeq->GetLength();
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Результат GetLength");
+    msgBox.setIcon(QMessageBox::NoIcon);
+    msgBox.setText(QString("Длина последовательности: %1").arg(length));
+    msgBox.exec();
 }
