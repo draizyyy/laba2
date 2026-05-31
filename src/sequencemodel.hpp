@@ -9,8 +9,7 @@ private:
     myLib::ArraySequence<int>* m_seq;
 
 public:
-    explicit SequenceModel(myLib::ArraySequence<int>* seq, QObject *parent = nullptr)
-        : QAbstractListModel(parent), m_seq(seq) {}
+    SequenceModel(myLib::ArraySequence<int>* seq, QObject *parent = nullptr) : QAbstractListModel(parent), m_seq(seq) {}
 
     ~SequenceModel() override {
         delete m_seq;
@@ -20,14 +19,14 @@ public:
         return m_seq;
     }
 
-    int rowCount(QModelIndex &parent = QModelIndex()) override {
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override {
         if (parent.isValid() || !m_seq) {
             return 0;
         }
         return static_cast<int>(m_seq->GetLength());
     }
 
-    QVariant data(QModelIndex &index, int role = Qt::DisplayRole) override {
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override {
         if (!index.isValid() || role != Qt::DisplayRole) {
             return QVariant();
         }
@@ -38,6 +37,17 @@ public:
         }
         
         return m_seq->Get(targetIndex);
+    }
+
+    void setElement(int row, int value) {
+        if (row < 0 || row >= static_cast<int>(getSequence()->GetLength())) {
+            return;
+        }
+        
+        getSequence()->Set(row, value);
+        
+        QModelIndex idx = createIndex(row, 0);
+        emit dataChanged(idx, idx, {Qt::DisplayRole});
     }
 
     void appendElement(int value) {

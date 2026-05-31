@@ -15,20 +15,19 @@ public:
 
 private slots:
     void onAddTab();
+    void onElementDoubleClicked(const QModelIndex &index);
+    void onTabCloseRequested(int index);
     void onAppendElement();
     void onPrependElement();
     void onApplyMap();
     void onApplyWhere();
     void onApplyReduce();
     void onConcat();
-    void onGetFirst();    
-    void onGetLast();  
     void onGetLength();
     
-
 private:
     Ui::SequenceWindow *ui;
-    QMap<int, SequenceModel*> m_models;
-    QMap<int, QListView*> m_views;
+    QMap<QWidget*, SequenceModel*> m_models; 
+    QMap<QWidget*, QListView*> m_views;
     size_t m_tabCounter = 0;
 };

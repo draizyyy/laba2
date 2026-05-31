@@ -67,6 +67,24 @@ public:
         return this;
     }
 
+    Sequence<T>* DeleteAt(size_t index) override {
+        if (index >= size) {
+            throw IndexOutOfRangeException(index, size);
+        }
+        data->DeleteAt(index);
+        size--;
+        return this;
+    }
+
+    Sequence<T>* Set(size_t index, T value) override {
+        if (index >= size) {
+            throw IndexOutOfRangeException(index, size);
+        }
+        data->DeleteAt(index);
+        data->InsertAt(value, index);
+        return this;
+    }
+
     Sequence<T>* Concat(Sequence<T>* list) override {
         if (list->GetLength() == 0) {
             return new ListSequence<T>(*data);

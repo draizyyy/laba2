@@ -15,7 +15,8 @@ int productReducer(int acc, int x) { return acc * x; }
 
 SequenceWindow::SequenceWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::SequenceWindow) {
     ui->setupUi(this);
-    
+
+    connect(ui->tabWidgetSequences, &QTabWidget::tabCloseRequested, this, &SequenceWindow::onTabCloseRequested);
     connect(ui->pushButtonAddTab, &QPushButton::clicked, this, &SequenceWindow::onAddTab);
     connect(ui->pushButtonPrepend, &QPushButton::clicked, this, &SequenceWindow::onPrependElement);
     connect(ui->pushButtonAppend, &QPushButton::clicked, this, &SequenceWindow::onAppendElement);
@@ -23,8 +24,6 @@ SequenceWindow::SequenceWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui
     connect(ui->pushButtonWhere, &QPushButton::clicked, this, &SequenceWindow::onApplyWhere);
     connect(ui->pushButtonReduce, &QPushButton::clicked, this, &SequenceWindow::onApplyReduce);
     connect(ui->pushButtonConcat, &QPushButton::clicked, this, &SequenceWindow::onConcat);
-    connect(ui->pushButtonGetFirst, &QPushButton::clicked, this, &SequenceWindow::onGetFirst);
-    connect(ui->pushButtonGetLast, &QPushButton::clicked, this, &SequenceWindow::onGetLast);
     connect(ui->pushButtonGetLength, &QPushButton::clicked, this, &SequenceWindow::onGetLength);
 }
 
@@ -36,8 +35,21 @@ SequenceWindow::~SequenceWindow() {
 }
 
 void SequenceWindow::onAddTab() {
-    m_tabCounter++;
-    
+    int actualNum = 1;
+    while (true) {
+        bool numberTaken = false;
+        for (int i = 0; i < ui->tabWidgetSequences->count(); i++) {
+            if (ui->tabWidgetSequences->tabText(i).contains(QString::number(actualNum))) {
+                numberTaken = true;
+                break;
+            }
+        }
+        if (!numberTaken) {
+            break; 
+        }
+        actualNum++; 
+    }
+
     QWidget *tabContent = new QWidget();
     QVBoxLayout *layout = new QVBoxLayout(tabContent);
     QListView *listView = new QListView();
@@ -45,7 +57,6 @@ void SequenceWindow::onAddTab() {
     listView->setViewMode(QListView::IconMode);
     listView->setGridSize(QSize(90, 90));
     listView->setSpacing(8);
-
     listView->setWrapping(true); 
     listView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     
@@ -54,18 +65,34 @@ void SequenceWindow::onAddTab() {
     listView->setModel(newModel);
     
     layout->addWidget(listView);
+
+    connect(listView, &QListView::doubleClicked, this, &SequenceWindow::onElementDoubleClicked);
+
+    ui->tabWidgetSequences->addTab(tabContent, QString("Последовательность %1").arg(actualNum));
     
-    int index = ui->tabWidgetSequences->addTab(tabContent, QString("Последовательность %1").arg(m_tabCounter));
-    
-    m_models[index] = newModel;
-    m_views[index] = listView;
-    
-    ui->tabWidgetSequences->setCurrentIndex(index);
+    m_models[tabContent] = newModel;
+    m_views[tabContent] = listView;
+    ui->tabWidgetSequences->setCurrentWidget(tabContent);
+}
+
+void SequenceWindow::onTabCloseRequested(int index) {
+    QWidget* tabContent = ui->tabWidgetSequences->widget(index);
+    if (!tabContent) return;
+
+    ui->tabWidgetSequences->removeTab(index);
+
+    SequenceModel* model = m_models.take(tabContent);
+    m_views.remove(tabContent);
+
+    delete model;
+    delete tabContent;
 }
 
 void SequenceWindow::onAppendElement() {
-    int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) return;
+    QWidget* currentTab = ui->tabWidgetSequences->currentWidget();
+    if (!currentTab || !m_models.contains(currentTab)) {
+        return;
+    }
 
     bool ok;
     int val = QInputDialog::getInt(this, "Вставка в конец", "Введите число:", 0, -99999, 99999, 1, &ok);
@@ -73,30 +100,38 @@ void SequenceWindow::onAppendElement() {
         return;
     }
 
-    m_models[currentIndex]->appendElement(val);
+    m_models[currentTab]->appendElement(val);
 }
 
 void SequenceWindow::onPrependElement() {
-    int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) return;
+    QWidget* currentTab = ui->tabWidgetSequences->currentWidget();
+    if (!currentTab || !m_models.contains(currentTab)) {
+        return;
+    }
 
     bool ok;
     int val = QInputDialog::getInt(this, "Вставка в начало", "Введите число:", 0, -99999, 99999, 1, &ok);
-    if (!ok) return;
+    if (!ok) {
+        return;
+    }
 
-    m_models[currentIndex]->prependElement(val);
+    m_models[currentTab]->prependElement(val);
 }
 
 void SequenceWindow::onApplyMap() {
-    int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) return;
+    QWidget* currentTab = ui->tabWidgetSequences->currentWidget();
+    if (!currentTab || !m_models.contains(currentTab)) {
+        return;
+    }
 
     QStringList options = {"Возведение в квадрат (x^2)", "Умножить на 10 (x * 10)"};
     bool ok;
     QString item = QInputDialog::getItem(this, "Выбор функции Map", "Выберите операцию:", options, 0, false, &ok);
-    if (!ok) return;
+    if (!ok) {
+        return;
+    }
 
-    auto* currentSeq = m_models[currentIndex]->getSequence();
+    auto* currentSeq = m_models[currentTab]->getSequence();
     myLib::Sequence<int>* mappedSeqRaw = nullptr;
 
     if (item == options[0]) {
@@ -106,21 +141,23 @@ void SequenceWindow::onApplyMap() {
     }
 
     auto* mappedSeq = static_cast<myLib::ArraySequence<int>*>(mappedSeqRaw);
-    m_models[currentIndex]->updateModelData(mappedSeq);
+    m_models[currentTab]->updateModelData(mappedSeq);
 }
 
 void SequenceWindow::onApplyWhere() {
-    int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) {
+    QWidget* currentTab = ui->tabWidgetSequences->currentWidget();
+    if (!currentTab || !m_models.contains(currentTab)) {
         return;
     }
 
     QStringList options = {"Только четные (x % 2 == 0)", "Только положительные (x > 0)"};
     bool ok;
     QString item = QInputDialog::getItem(this, "Выбор фильтра Where", "Выберите условие:", options, 0, false, &ok);
-    if (!ok) return;
+    if (!ok) {
+        return;
+    }
 
-    auto* currentSeq = m_models[currentIndex]->getSequence();
+    auto* currentSeq = m_models[currentTab]->getSequence();
     myLib::Sequence<int>* filteredSeqRaw = nullptr;
 
     if (item == options[0]) {
@@ -130,16 +167,16 @@ void SequenceWindow::onApplyWhere() {
     }
 
     auto* filteredSeq = static_cast<myLib::ArraySequence<int>*>(filteredSeqRaw);
-    m_models[currentIndex]->updateModelData(filteredSeq);
+    m_models[currentTab]->updateModelData(filteredSeq);
 }
 
 void SequenceWindow::onApplyReduce() {
-    int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) {
+    QWidget* currentTab = ui->tabWidgetSequences->currentWidget();
+    if (!currentTab || !m_models.contains(currentTab)) {
         return;
     }
 
-    auto* currentSeq = m_models[currentIndex]->getSequence();
+    auto* currentSeq = m_models[currentTab]->getSequence();
     if (currentSeq->GetLength() == 0) {
         QMessageBox::warning(this, "Внимание", "Последовательность пуста.");
         return;
@@ -180,26 +217,29 @@ void SequenceWindow::onConcat() {
     }
 
     QStringList tabs;
-    for (int i = 0; i < ui->tabWidgetSequences->count(); ++i) {
+    for (int i = 0; i < ui->tabWidgetSequences->count(); i++) {
         tabs << ui->tabWidgetSequences->tabText(i);
     }
 
     bool ok1, ok2;
     QString tab1 = QInputDialog::getItem(this, "Склеивание", "Выберите первую последовательность:", tabs, 0, false, &ok1);
-    if (!ok1) {
-        return;
-    }
+    if (!ok1) return;
 
     QString tab2 = QInputDialog::getItem(this, "Склеивание", "Выберите вторую последовательность:", tabs, 0, false, &ok2);
-    if (!ok2) {
+    if (!ok2) return;
+
+    int index1 = tabs.indexOf(tab1);
+    int index2 = tabs.indexOf(tab2);
+
+    QWidget* w1 = ui->tabWidgetSequences->widget(index1);
+    QWidget* w2 = ui->tabWidgetSequences->widget(index2);
+
+    if (!w1 || !w2 || !m_models.contains(w1) || !m_models.contains(w2)) {
         return;
     }
 
-    int idx1 = tabs.indexOf(tab1);
-    int idx2 = tabs.indexOf(tab2);
-
-    auto* seq1 = m_models[idx1]->getSequence();
-    auto* seq2 = m_models[idx2]->getSequence();
+    auto* seq1 = m_models[w1]->getSequence();
+    auto* seq2 = m_models[w2]->getSequence();
 
     myLib::Sequence<int>* concatResultRaw = seq1->Concat(seq2);
     auto* concatResult = static_cast<myLib::ArraySequence<int>*>(concatResultRaw);
@@ -212,66 +252,51 @@ void SequenceWindow::onConcat() {
     listView->setViewMode(QListView::IconMode);
     listView->setGridSize(QSize(90, 90)); 
     listView->setSpacing(8);
-
     listView->setWrapping(true);
     listView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     SequenceModel* newModel = new SequenceModel(concatResult, this);
     listView->setModel(newModel);
     layout->addWidget(listView);
+    
+    connect(listView, &QListView::doubleClicked, this, &SequenceWindow::onElementDoubleClicked);
 
-    int newIndex = ui->tabWidgetSequences->addTab(tabContent, QString("Результат Concat %1").arg(m_tabCounter));
-    m_models[newIndex] = newModel;
-    m_views[newIndex] = listView;
+    ui->tabWidgetSequences->addTab(tabContent, QString("Результат Concat %1").arg(m_tabCounter));
 
-    ui->tabWidgetSequences->setCurrentIndex(newIndex);
+    m_models[tabContent] = newModel;
+    m_views[tabContent] = listView;
+
+    ui->tabWidgetSequences->setCurrentWidget(tabContent);
 }
 
-void SequenceWindow::onGetFirst() {
-    int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) {
+void SequenceWindow::onElementDoubleClicked(const QModelIndex &index) {
+    if (!index.isValid()) return;
+
+    QWidget* currentTab = ui->tabWidgetSequences->currentWidget();
+    if (!currentTab || !m_models.contains(currentTab)) {
         return;
     }
 
-    auto* currentSeq = m_models[currentIndex]->getSequence();
-    if (currentSeq->GetLength() == 0) {
-        QMessageBox::warning(this, "Внимание", "Последовательность пуста.");
+    int row = index.row();
+    int currentVal = m_models[currentTab]->getSequence()->Get(row);
+
+    bool ok;
+    int newVal = QInputDialog::getInt(this, "Редактирование элемента", QString("Изменение элемента в позиции %1:").arg(row), currentVal,
+                     -99999, 99999, 1, &ok);
+    if (!ok) {
         return;
     }
 
-    int firstValue = currentSeq->GetFirst();
-
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("Результат GetFirst");
-    msgBox.setIcon(QMessageBox::NoIcon);
-    msgBox.setText(QString("Первый элемент: %1").arg(firstValue));
-    msgBox.exec();
-}
-
-void SequenceWindow::onGetLast() {
-    int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) return;
-
-    auto* currentSeq = m_models[currentIndex]->getSequence();
-    if (currentSeq->GetLength() == 0) {
-        QMessageBox::warning(this, "Внимание", "Последовательность пуста.");
-        return;
-    }
-
-    int lastValue = currentSeq->GetLast();
-
-    QMessageBox msgBox(this);
-    msgBox.setWindowTitle("Результат GetLast");
-    msgBox.setIcon(QMessageBox::NoIcon);
-    msgBox.setText(QString("Последний элемент: %1").arg(lastValue));
-    msgBox.exec();
+    m_models[currentTab]->setElement(row, newVal);
 }
 
 void SequenceWindow::onGetLength() {
-    int currentIndex = ui->tabWidgetSequences->currentIndex();
-    if (currentIndex < 0) return;
+    QWidget* currentTab = ui->tabWidgetSequences->currentWidget();
+    if (!currentTab || !m_models.contains(currentTab)) {
+        return;
+    }
 
-    auto* currentSeq = m_models[currentIndex]->getSequence();
+    auto* currentSeq = m_models[currentTab]->getSequence();
     size_t length = currentSeq->GetLength();
 
     QMessageBox msgBox(this);

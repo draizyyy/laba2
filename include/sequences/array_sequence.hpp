@@ -45,13 +45,21 @@ protected:
         return seq;
     }
 
-    // Sequence<T>* DeleteAtDefault(size_t index, ArraySequence<T>* seq) {
-    //     if (index >= seq->GetLength()) {
-    //         throw IndexOutOfRangeException(index, seq->GetLength());
-    //     }
-    //     seq->data->DeleteAt(index); 
-    //     return seq;
-    // }
+    Sequence<T>* DeleteAtDefault(size_t index, ArraySequence<T>* seq) {
+        if (index >= seq->GetLength()) {
+            throw IndexOutOfRangeException(index, seq->GetLength());
+        }
+        seq->data->DeleteAt(index); 
+        return seq;
+    }
+
+    Sequence<T>* SetDefault(size_t index, T value, ArraySequence<T>* seq) {
+        if (index >= seq->GetLength()) {
+            throw IndexOutOfRangeException(index, seq->GetLength());
+        }
+        seq->data->Set(index, value);
+        return seq;
+    }
 
     Sequence<T>* ConcatDefault(Sequence<T>* list, ArraySequence<T>* seq) {
         auto arr = static_cast<ArraySequence<T>*>(list); 
@@ -101,9 +109,13 @@ public:
         return InsertAtDefault(item, index, Instance());
     }
 
-    // Sequence<T>* DeleteAt(size_t index) override {
-    //     return DeleteAtDefault(index, Instance());
-    // }
+    Sequence<T>* DeleteAt(size_t index) override {
+        return DeleteAtDefault(index, Instance());
+    }
+
+    Sequence<T>* Set(size_t index, T value) override {
+        return SetDefault(index, value, Instance());
+    }
 
     Sequence<T>* Concat(Sequence<T>* list) override {
         return ConcatDefault(list, Clone());
@@ -116,7 +128,7 @@ public:
         return data->end(); 
     }
 
-        template<typename T2>
+    template<typename T2>
     Sequence<T2>* Map(T2 (*func)(T)) {
         size_t len = GetLength();
         T2* t2 = new T2[len];
@@ -240,6 +252,10 @@ class ImmutableArraySequence : public ArraySequence<T> {
 
     Sequence<T>* InsertAt(T item, size_t index) override {
         return this->InsertAtDefault(item, index, this->Instance());
+    }
+
+    Sequence<T>* DeleteAt(size_t index) override {
+        return this->DeleteAtDefault(index, this->Instance());
     }
 
     Sequence<T>* Concat(Sequence<T>* list) override {

@@ -18,7 +18,9 @@ public:
     virtual Sequence<T>* Append(T item) = 0;
     virtual Sequence<T>* Prepend(T item) = 0;
     virtual Sequence<T>* InsertAt(T item, size_t index) = 0;
+    virtual Sequence<T>* DeleteAt(size_t index) = 0;
     virtual Sequence<T>* Concat(Sequence<T> *list) = 0;
+    virtual Sequence<T>* Set(size_t index, T value) = 0;
 
     virtual std::string ToString() = 0;
     virtual std::string ToString(T elem) = 0;

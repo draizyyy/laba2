@@ -253,6 +253,22 @@ public:
         data->InsertAt(item, index);
         return this;
     }
+
+    Sequence<Bit<T>>* DeleteAt(size_t index) override {
+        if (index >= data->GetSize()) {
+            throw IndexOutOfRangeException(index, data->GetSize());
+        }
+        data->DeleteAt(index);
+        return this;
+    }
+
+    Sequence<Bit<T>>* Set(size_t index, Bit<T> value) override {
+        if (index >= data->GetSize()) {
+            throw IndexOutOfRangeException(index, data->GetSize());
+        }
+        data->Set(index, value);
+        return this;
+    }
     
     Sequence<Bit<T>>* Concat(Sequence<Bit<T>>* list) override {
         auto other = static_cast<BitSequence<T>*>(list);
