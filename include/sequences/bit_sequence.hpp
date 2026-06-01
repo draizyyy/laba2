@@ -277,6 +277,10 @@ public:
         delete bitArray;
         return res;
     }
+
+    Sequence<Bit<T>>* Empty() override {
+        return new BitSequence<T>();
+    }
     
     auto begin() const { return data->begin(); }
     auto end()   const { return data->end(); }

@@ -22,8 +22,11 @@ public:
     virtual Sequence<T>* Concat(Sequence<T> *list) = 0;
     virtual Sequence<T>* Set(size_t index, T value) = 0;
 
+    virtual Sequence<T>* Empty() = 0;
+
     virtual std::string ToString() = 0;
     virtual std::string ToString(T elem) = 0;
     virtual T FromString(const std::string& s) = 0;
 };
+
 }

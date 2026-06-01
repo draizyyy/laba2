@@ -101,6 +101,10 @@ public:
         return res;
     }
 
+    Sequence<T>* Empty() override {
+        return new ListSequence<T>();
+    }
+
     auto begin() const { 
         return data->begin();
     }

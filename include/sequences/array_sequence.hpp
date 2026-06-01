@@ -121,6 +121,10 @@ public:
         return ConcatDefault(list, Clone());
     }
 
+    Sequence<T>* Empty() override {
+        return new ArraySequence<T>();
+    }
+
     auto begin() const { 
         return data->begin();
     }
@@ -226,6 +230,9 @@ class MutableArraySequence : public ArraySequence<T> {
     }
     public:
     using ArraySequence<T>::ArraySequence;
+    Sequence<T>* Empty() override {
+        return new MutableArraySequence<T>();
+    }
 };
 
 template<typename T>
@@ -241,6 +248,10 @@ class ImmutableArraySequence : public ArraySequence<T> {
 
     public:
     using ArraySequence<T>::ArraySequence;
+
+    Sequence<T>* Empty() override {
+        return new ImmutableArraySequence<T>();
+    }
 
     Sequence<T>* Append(T item) override {
         return this->AppendDefault(item, this->Instance());
