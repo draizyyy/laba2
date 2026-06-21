@@ -10,7 +10,7 @@ class SequenceWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit SequenceWindow(QWidget *parent = nullptr);
+    SequenceWindow(QWidget *parent = nullptr);
     ~SequenceWindow() override;
 
 private slots:
@@ -28,6 +28,5 @@ private slots:
 private:
     Ui::SequenceWindow *ui;
     QMap<QWidget*, SequenceModel*> m_models; 
-    QMap<QWidget*, QListView*> m_views;
     size_t m_tabCounter = 0;
 };

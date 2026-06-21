@@ -1,15 +1,19 @@
 #pragma once
 
+#include "sequence_iterator.hpp"
 #include "sequence.hpp"
 
 namespace myLib {
 
 template<typename T>
 Sequence<T>* Map(Sequence<T>* seq, T (*func)(T)) {
+    if (!seq) {
+        return nullptr;
+    }
     Sequence<T>* result = seq->Empty();
 
-    for (size_t i = 0; i < seq->GetLength(); i++) {
-        result->Append(func(seq->Get(i)));
+    for (const auto& el : *seq) {
+        result->Append(func(el));
     }
 
     return result;
@@ -17,13 +21,14 @@ Sequence<T>* Map(Sequence<T>* seq, T (*func)(T)) {
 
 template<typename T>
 Sequence<T>* Where(Sequence<T>* seq, bool (*predicate)(T)) {
+    if (!seq) {
+        return nullptr;
+    }
     Sequence<T>* result = seq->Empty();
 
-    for (size_t i = 0; i < seq->GetLength(); i++) {
-        T value = seq->Get(i);
-
-        if (predicate(value)) {
-            result->Append(value);
+    for (const auto& el : *seq) {
+        if (predicate(el)) {
+            result->Append(el);
         }
     }
 
@@ -32,10 +37,13 @@ Sequence<T>* Where(Sequence<T>* seq, bool (*predicate)(T)) {
 
 template<typename T>
 T Reduce(Sequence<T>* seq, T (*func)(T, T), T startValue) {
+    if (!seq) {
+        return startValue;
+    }
     T result = startValue;
 
-    for (size_t i = 0; i < seq->GetLength(); i++) {
-        result = func(result, seq->Get(i));
+    for (const auto& el : *seq) {
+        result = func(result, el);
     }
 
     return result;

@@ -1,6 +1,8 @@
 #pragma once
 #include "exceptions.hpp"
 #include <iterator>
+#include <cstring>
+#include <initializer_list>
 
 namespace myLib {
 
@@ -53,9 +55,58 @@ public:
         if (!items && count > 0) {
             throw EmptyCollectionException("items");
         }
-        for (size_t i = 0; i < count; i++) {
-            data[i] = items[i];
+        std::memcpy(data, items, count * sizeof(T));
+    }
+    DynamicArray& operator=(const DynamicArray& other) {
+        if (this != &other) {
+            delete[] data;
+
+            size = other.size;
+            data = new T[size];
+
+            if (size > 0) {
+                std::memcpy(data, other.data, size * sizeof(T));
+            }
         }
+        return *this;
+    }
+
+    DynamicArray(DynamicArray&& other) : data(other.data), size(other.size) {
+        other.data = nullptr;
+        other.size = 0;
+    }
+
+    DynamicArray& operator=(DynamicArray&& other) noexcept {
+        if (this != &other) {
+            delete[] data;    
+            
+            data = other.data;  
+            size = other.size;
+            
+            other.data = nullptr; 
+            other.size = 0; 
+        }
+        return *this;
+    }
+
+    DynamicArray(std::initializer_list<T> list) : size(list.size()), data(new T[list.size()]) {
+        if (size > 0) {
+            std::memcpy(data, list.begin(), size * sizeof(T));
+        }
+    }
+    
+    T& operator[](size_t index) {
+        if (index >= size)
+            throw IndexOutOfRangeException(index, size);
+
+        return data[index];
+    }
+
+    const T& operator[](size_t index) const {
+        if (index >= size)
+            throw IndexOutOfRangeException(index, size);
+
+        return data[index];
     }
 
     Iterator begin() const { 
@@ -69,31 +120,38 @@ public:
         if (size == 0) {
             return;
         }
-        size_t i = 0;
-        for (auto& el : other) {
-            data[i++] = el;
-        }
+        std::memcpy(data, other.data, size * sizeof(T));
     }
     ~DynamicArray() {
         delete[] data;
     }
-    T Get(size_t index) {
+
+    T& Get(size_t index) {
         if (index >= size) {
             throw IndexOutOfRangeException(index, size);
         }
         return data[index];
     }
+    T Get(size_t index) const {
+        if (index >= size) {
+            throw IndexOutOfRangeException(index, size);
+        }
+        return data[index];
+    }
+
     size_t GetSize() {
         return size;
     }
-    void Set(size_t index, T value) {
+    DynamicArray<T>& Set(size_t index, T value) {
         if (index >= size) {
             throw IndexOutOfRangeException(index, size);
         }
         data[index] = value;
+
+        return *this;
     }
 
-    DynamicArray<T>* SubArray(size_t start_index, size_t end_index) {
+    DynamicArray<T> SubArray(size_t start_index, size_t end_index) {
         if (start_index > size) {
             throw IndexOutOfRangeException(start_index, size);
         }
@@ -104,44 +162,38 @@ public:
             throw IndexOutOfRangeException(start_index, start_index-1);
         }
         if (start_index == end_index) {
-            return new DynamicArray<T>();
+            return DynamicArray<T>();
         }
 
-        DynamicArray<T>* res = new DynamicArray<T>(end_index - start_index);
-        size_t i = 0;
-        size_t curr = 0;
-        for (auto& el : *this) {
-            if (i >= start_index && i < end_index) {
-                res->data[curr++] = el;
-            }
-            i++;
-        }
+        size_t newSize = end_index - start_index;
+        DynamicArray<T> res = DynamicArray<T>(newSize);
+        
+        std::memcpy(res.data, data + start_index, newSize * sizeof(T));
 
         return res;
     }
 
 
-    void InsertAt(T item, size_t index) {
-        if (index > size) {
-            throw IndexOutOfRangeException(index, size);
-        }
-        T* newData = new T[size + 1];
+    // void InsertAt(T item, size_t index) {
+    //     if (index > size) {
+    //         throw IndexOutOfRangeException(index, size);
+    //     }
+    //     T* newData = new T[size + 1];
         
-        size_t i = 0;
-        for (auto& el : *this) {
-            if (i < index) {
-                newData[i] = el;
-            } else {
-                newData[i + 1] = el;
-            }
-            i++;
-        }
-        newData[index] = item;
+    //     if (index > 0) {
+    //         std::memcpy(newData, data, index * sizeof(T));
+    //     }
+        
+    //     newData[index] = item;
 
-        delete[] data;
-        data = newData;
-        size++;
-    }
+    //     if (index < size) {
+    //         std::memcpy(newData + index + 1, data + index, (size - index) * sizeof(T));
+    //     }
+
+    //     delete[] data;
+    //     data = newData;
+    //     size++;
+    // }
 
     // void Append(T item) {
     //     InsertAt(item, size);
@@ -151,58 +203,61 @@ public:
     //     InsertAt(item, 0);
     // }
 
-    void DeleteAt(size_t index) {
-        if (index >= size) {
-            throw IndexOutOfRangeException(index, size);
-        }
+    // void DeleteAt(size_t index) {
+    //     if (index >= size) {
+    //         throw IndexOutOfRangeException(index, size);
+    //     }
 
-        if (size == 1) {
-            delete[] data;
-            data = nullptr;
-            size = 0;
-            return;
-        }
+    //     if (size == 1) {
+    //         delete[] data;
+    //         data = nullptr;
+    //         size = 0;
+    //         return;
+    //     }
 
-        T* newData = new T[size - 1];
-        size_t i = 0;
-        size_t curr = 0;
-        for (auto& el : *this) {
-            if (i != index) {
-                newData[curr++] = el;
-            }
-            i++;
-        }
+    //     T* newData = new T[size - 1];
 
-        delete[] data;
-        data = newData;
-        size--;
-    }
+    //     if (index > 0) {
+    //         std::memcpy(newData, data, index * sizeof(T));
+    //     }
+        
+    //     if (index < size - 1) {
+    //         std::memcpy(newData + index, data + index + 1, (size - index - 1) * sizeof(T));
+    //     }
+
+    //     delete[] data;
+    //     data = newData;
+    //     size--;
+    // }
 
     void Resize(size_t newSize) {
         T* newData = new T[newSize];
         size_t copySize = (size > newSize) ? newSize : size;
-        size_t i = 0;
-        for (auto& el : *this) {
-            if (i >= copySize) {
-                break;
-            }
-            newData[i++] = el;
+
+        if (copySize > 0) {
+            std::memcpy(newData, data, copySize * sizeof(T));
         }
+
         delete[] data;
         data = newData;
         size = newSize;
     }
     
-    DynamicArray<T>* Concat(DynamicArray<T>* array) {
-        DynamicArray<T>* res = new DynamicArray<T>(size + array->size);
-        size_t i = 0;
-        for (auto& el : *this) {
-            res->data[i++] = el;
+    DynamicArray<T>* Concat(DynamicArray<T>* arr) {
+        if (!arr) {
+            throw InvalidInputException("Передан нулевой указатель");
         }
-        size_t j = 0;
-        for (auto& el : *array) {
-            res->data[size + j++] = el;
+
+        DynamicArray<T>* res = new DynamicArray<T>(size + arr->size);
+
+        if (size > 0) {
+            std::memcpy(res->data, data, size * sizeof(T));
         }
+        
+        if (arr->size > 0) {
+            std::memcpy(res->data + size, arr->data, arr->size * sizeof(T));
+        }
+
         return res;
     }
 };

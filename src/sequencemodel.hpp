@@ -5,21 +5,23 @@
 #include <sequences/array_sequence.hpp>
 #include <sequences/list_sequence.hpp>
 
+using namespace myLib;
+
 class SequenceModel : public QAbstractListModel {
     Q_OBJECT
 
 private:
-    myLib::Sequence<int>* m_seq;
+    Sequence<int>* m_seq;
 
 public:
-    SequenceModel(myLib::Sequence<int>* seq, QObject *parent = nullptr)
+    SequenceModel(Sequence<int>* seq, QObject *parent = nullptr)
         : QAbstractListModel(parent), m_seq(seq) {}
 
     ~SequenceModel() override {
         delete m_seq;
     }
 
-    myLib::Sequence<int>* getSequence() {
+    Sequence<int>* getSequence() {
         return m_seq;
     }
 
@@ -28,7 +30,7 @@ public:
             return 0;
         }
 
-        return static_cast<int>(m_seq->GetLength());
+        return static_cast<int>(m_seq->GetLength());;
     }
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override {
@@ -88,7 +90,7 @@ public:
         endRemoveRows();
     }
 
-    void updateModelData(myLib::Sequence<int>* newSeq) {
+    void updateModelData(Sequence<int>* newSeq) {
         beginResetModel();
 
         delete m_seq;
@@ -104,8 +106,9 @@ public:
 
         beginResetModel();
 
-        delete m_seq;
-        m_seq = new myLib::MutableArraySequence<int>();
+        while (m_seq->GetLength() > 0) {
+            m_seq->DeleteAt(m_seq->GetLength() - 1);
+        }
 
         endResetModel();
     }

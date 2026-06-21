@@ -1,12 +1,13 @@
 #pragma once
 
 #include "exceptions.hpp"
+#include "sequence_iterator.hpp"
 
 namespace myLib {
 
 template <class T>
 class Sequence {
-public:
+public:    
     virtual ~Sequence() = default;
 
     virtual T GetFirst() = 0;
@@ -27,6 +28,9 @@ public:
     virtual std::string ToString() = 0;
     virtual std::string ToString(T elem) = 0;
     virtual T FromString(const std::string& s) = 0;
+
+    virtual SequenceIterator<T> begin() = 0;
+    virtual SequenceIterator<T> end() = 0;
 };
 
 }

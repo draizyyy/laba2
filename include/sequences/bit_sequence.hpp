@@ -5,6 +5,7 @@
 #include "core/linked_list.hpp"
 #include <string>
 #include "exceptions.hpp"
+#include "sequence_iterator.hpp"
 
 namespace myLib {
 
@@ -282,8 +283,13 @@ public:
         return new BitSequence<T>();
     }
     
-    auto begin() const { return data->begin(); }
-    auto end()   const { return data->end(); }
+    SequenceIterator<T> begin() override {
+        return data->begin();
+    }
+
+    SequenceIterator<T> end() override {
+        return data->end();
+    }
     
     template <typename T2>
     Sequence<T2>* Map(T2 (*func)(Bit<T>)) {

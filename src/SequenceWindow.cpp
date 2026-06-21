@@ -41,17 +41,23 @@ SequenceWindow::~SequenceWindow() {
 
 void SequenceWindow::onAddTab() {
     int actualNum = 1;
+
     while (true) {
         bool numberTaken = false;
+
         for (int i = 0; i < ui->tabWidgetSequences->count(); i++) {
-            if (ui->tabWidgetSequences->tabText(i).contains(QString::number(actualNum))) {
+            QString tabName = ui->tabWidgetSequences->tabText(i);
+
+            if (tabName.endsWith(" " + QString::number(actualNum))) {
                 numberTaken = true;
                 break;
             }
         }
+
         if (!numberTaken) {
             break;
         }
+
         actualNum++;
     }
 
@@ -96,7 +102,6 @@ void SequenceWindow::onAddTab() {
     );
 
     m_models[tabContent] = newModel;
-    m_views[tabContent] = listView;
     ui->tabWidgetSequences->setCurrentWidget(tabContent);
 }
 
@@ -109,7 +114,6 @@ void SequenceWindow::onTabCloseRequested(int index) {
     ui->tabWidgetSequences->removeTab(index);
 
     SequenceModel* model = m_models.take(tabContent);
-    m_views.remove(tabContent);
 
     delete model;
     delete tabContent;
@@ -235,7 +239,7 @@ void SequenceWindow::onApplyReduce() {
 
 void SequenceWindow::onConcat() {
     if (ui->tabWidgetSequences->count() < 2) {
-        QMessageBox::warning(this, "Внимание", "Для склейки необходимо иметь хотя бы две вкладки.");
+        QMessageBox::warning(this, "Ошибка", "Для склейки необходимо иметь хотя бы две последовательности.");
         return;
     }
 
@@ -244,12 +248,20 @@ void SequenceWindow::onConcat() {
         tabs << ui->tabWidgetSequences->tabText(i);
     }
 
-    bool ok1, ok2;
+    bool ok1 = false;
+    bool ok2 = false;
+
     QString tab1 = QInputDialog::getItem(this, "Склеивание", "Выберите первую последовательность:", tabs, 0, false, &ok1);
-    if (!ok1) return;
+
+    if (!ok1) {
+        return;
+    }
 
     QString tab2 = QInputDialog::getItem(this, "Склеивание", "Выберите вторую последовательность:", tabs, 0, false, &ok2);
-    if (!ok2) return;
+
+    if (!ok2) {
+        return;
+    }
 
     int index1 = tabs.indexOf(tab1);
     int index2 = tabs.indexOf(tab2);
@@ -261,42 +273,33 @@ void SequenceWindow::onConcat() {
         return;
     }
 
-    auto* seq1 = m_models[w1]->getSequence();
-    auto* seq2 = m_models[w2]->getSequence();
+    Sequence<int>* seq1 = m_models[w1]->getSequence();
+    Sequence<int>* seq2 = m_models[w2]->getSequence();
 
-    myLib::Sequence<int>* concatResult = nullptr;
+    Sequence<int>* concatResult = nullptr;
 
-    if (auto* arraySeq1 = dynamic_cast<myLib::ArraySequence<int>*>(seq1)) {
-        auto* arraySeq2 = dynamic_cast<myLib::ArraySequence<int>*>(seq2);
-
-        if (!arraySeq2) {
-            QMessageBox::warning(this, "Ошибка", "Склеивать можно только последовательности одного типа.");
-            return;
-        }
-
-        concatResult = arraySeq1->Concat(arraySeq2);
+    try {
+        concatResult = seq1->Concat(seq2);
     }
-    else if (auto* listSeq1 = dynamic_cast<myLib::ListSequence<int>*>(seq1)) {
-        auto* listSeq2 = dynamic_cast<myLib::ListSequence<int>*>(seq2);
-
-        if (!listSeq2) {
-            QMessageBox::warning(this, "Ошибка", "Склеивать можно только последовательности одного типа.");
-            return;
-        }
-
-        concatResult = listSeq1->Concat(listSeq2);
+    catch (const std::exception& e) {
+        QMessageBox::warning(this, "Ошибка", e.what());
+        return;
+    }
+    catch (...) {
+        QMessageBox::warning(this, "Ошибка", "Неизвестная ошибка при склеивании последовательностей.");
+        return;
     }
 
     if (!concatResult) {
-        QMessageBox::warning(this, "Ошибка", "Не удалось выполнить Concat.");
+        QMessageBox::warning(this, "Ошибка", "Склеивание выполнено неверно.");
         return;
     }
 
     m_tabCounter++;
 
-    QWidget *tabContent = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(tabContent);
-    QListView *listView = new QListView();
+    QWidget* tabContent = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(tabContent);
+    QListView* listView = new QListView();
 
     listView->setViewMode(QListView::IconMode);
     listView->setGridSize(QSize(90, 90));
@@ -305,6 +308,7 @@ void SequenceWindow::onConcat() {
     listView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     SequenceModel* newModel = new SequenceModel(concatResult, this);
+
     listView->setModel(newModel);
     layout->addWidget(listView);
 
@@ -313,13 +317,14 @@ void SequenceWindow::onConcat() {
     ui->tabWidgetSequences->addTab(tabContent, QString("Результат Concat %1").arg(m_tabCounter));
 
     m_models[tabContent] = newModel;
-    m_views[tabContent] = listView;
 
     ui->tabWidgetSequences->setCurrentWidget(tabContent);
 }
 
 void SequenceWindow::onElementDoubleClicked(const QModelIndex &index) {
-    if (!index.isValid()) return;
+    if (!index.isValid()) {
+        return;
+    }
 
     QWidget* currentTab = ui->tabWidgetSequences->currentWidget();
     if (!currentTab || !m_models.contains(currentTab)) {

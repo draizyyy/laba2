@@ -18,20 +18,6 @@ private:
     Node* head{};
     Node* tail{};
 
-    Node* GetElement(size_t index) {     
-        if (!head) {
-            throw EmptyCollectionException("LinkedList");
-        }
-        Node* curr = head;
-        for (size_t i = 0; i < index; i++) {
-            if (!curr) {
-                throw IndexOutOfRangeException(index, i-1);
-            }
-            curr = curr->next;
-        }
-        return curr;
-    }
-
 public:
     class Iterator {
     private:
@@ -72,10 +58,10 @@ public:
         }
     };
 
-    Iterator begin() { 
+    Iterator begin() const { 
         return Iterator(head);
     }
-    Iterator end() { 
+    Iterator end() const { 
         return Iterator(nullptr); 
     }
 
@@ -90,11 +76,49 @@ public:
         }
     }
     LinkedList(const LinkedList<T>& list) : LinkedList() {
-        Node* curr = list.head;
-        while (curr) {
-            Append(curr->value);
-            curr = curr->next;
+        for (auto& el : list) {
+            Append(el);
         }
+    }
+
+    LinkedList& operator=(const LinkedList<T>& other) {
+        if (this != &other) {
+            while (head != nullptr) {
+                Node* node = head;      
+                head = head->next;    
+                delete node;            
+            }
+            tail = nullptr;
+
+            Node* curr = other.head;
+            for (auto& el : other) {
+                Append(el);
+            }
+        }
+        return *this;
+    }
+
+    LinkedList(LinkedList&& other) : head(other.head), tail(other.tail) {
+        other.head = nullptr;
+        other.tail = nullptr;
+    }
+
+    LinkedList& operator=(LinkedList&& other) {
+        if (this != &other) {
+            while (head != nullptr) {
+                Node* node = head;      
+                head = head->next;    
+                delete node;            
+            }
+            tail = nullptr;
+            
+            head = other.head;
+            tail = other.tail;
+            
+            other.head = nullptr;
+            other.tail = nullptr;
+        }
+        return *this;
     }
 
     ~LinkedList() {  
@@ -166,6 +190,40 @@ public:
         return sublist;
     }
 
+    LinkedList(std::initializer_list<T> list) : LinkedList() {
+        for (const auto& item : list) {
+            Append(item);
+        }
+    }
+
+    T& operator[](size_t index) {
+        if (!head) {
+            throw EmptyCollectionException("LinkedList");
+        }
+        Node* curr = head;
+        for (size_t i = 0; i < index; i++) {
+            if (!curr->next) {
+                throw IndexOutOfRangeException(index, i);
+            }
+            curr = curr->next;
+        }
+        return curr->value;
+    }
+
+    const T& operator[](size_t index) const {
+        if (!head) {
+            throw EmptyCollectionException("LinkedList");
+        }
+        Node* curr = head;
+        for (size_t i = 0; i < index; i++) {
+            if (!curr->next) {
+                throw IndexOutOfRangeException(index, i);
+            }
+            curr = curr->next;
+        }
+        return curr->value;
+    }
+
     void Append(T item) {
         Node* node = new Node(item);
         if (!head) {
@@ -233,35 +291,29 @@ public:
             target = target->next;
         }
 
-        if (target == head && target == tail) {
-            head = nullptr;
-            tail = nullptr;
-        }
-        else if (target == head) {
-            head = head->next;
-            head->prev = nullptr;
-        }
-        else if (target == tail) {
-            tail = tail->prev;
-            tail->next = nullptr;
-        }
-        else {
+        if (target->prev) {
             target->prev->next = target->next;
+        } else {
+            head = target->next;
+        }
+
+        if (target->next) {
             target->next->prev = target->prev;
+        } else {
+            tail = target->prev;
         }
 
         delete target;
     }
 
-    LinkedList<T>* Concat(LinkedList<T>* list) {
-        LinkedList<T>* newList = new LinkedList<T>();
-        for (auto& el : *this) {
-            newList->Append(el);
+    LinkedList<T> Concat(const LinkedList<T>& list) {
+        LinkedList<T> res(*this);
+
+        for (const auto& el : list) {
+            res.Append(el);
         }
-        for (auto& el : *list) {
-            newList->Append(el);
-        }
-        return newList;
+
+        return res;
     }
 };
 }

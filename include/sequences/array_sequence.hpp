@@ -6,50 +6,73 @@
 #include <sstream>
 #include <format>
 #include "exceptions.hpp"
+#include "sequence_iterator.hpp"
 
 namespace myLib {
-
-template<typename T> struct is_ptr { 
-    static constexpr bool value = false; 
-};
-template<typename T> struct is_ptr<T*> { 
-    static constexpr bool value = true;
-};
 
 template<typename T>
 class ArraySequence : public Sequence<T> {
 protected:
-    DynamicArray<T>* data;
+    DynamicArray<T> data;
     virtual ArraySequence<T>* Clone() {
-        return new ArraySequence<T>(*data);
+        return new ArraySequence<T>(data);
     }
     virtual ArraySequence<T>* Instance() {
         return this;
     }
 
     Sequence<T>* AppendDefault(T item, ArraySequence<T>* seq) {
-        seq->data->InsertAt(item, seq->GetLength());
-        return seq;
+        return InsertAtDefault(item, seq->GetLength(), seq);
     }
 
     Sequence<T>* PrependDefault(T item, ArraySequence<T>* seq) {
-        seq->data->InsertAt(item, 0);
-        return seq;
+        return InsertAtDefault(item, 0, seq);
     }
 
     Sequence<T>* InsertAtDefault(T item, size_t index, ArraySequence<T>* seq) {
-        if (index > seq->GetLength()) {
-            throw IndexOutOfRangeException(index, seq->GetLength());
+        size_t size = seq->GetLength();
+        if (index > size) {
+            throw IndexOutOfRangeException(index, size);
         }
-        seq->data->InsertAt(item, index);
+
+        DynamicArray<T> arr(size + 1);
+
+        for (size_t i = 0; i < index; i++) {
+            arr.Set(i, seq->data.Get(i));
+        }
+
+        arr.Set(index, item);
+
+        for (size_t i = index; i < size; i++) {
+            arr.Set(i + 1, seq->data.Get(i));
+        }
+
+        seq->data = std::move(arr);
         return seq;
     }
 
     Sequence<T>* DeleteAtDefault(size_t index, ArraySequence<T>* seq) {
-        if (index >= seq->GetLength()) {
-            throw IndexOutOfRangeException(index, seq->GetLength());
+        size_t size = seq->GetLength();
+        if (index >= size) {
+            throw IndexOutOfRangeException(index, size);
         }
-        seq->data->DeleteAt(index); 
+
+        if (size == 1) {
+            seq->data = DynamicArray<T>();
+            return seq;
+        }
+
+        DynamicArray<T> arr(size - 1);
+
+        for (size_t i = 0; i < index; i++) {
+            arr.Set(i, seq->data.Get(i));
+        }
+
+        for (size_t i = index + 1; i < size; i++) {
+            arr.Set(i - 1, seq->data.Get(i));
+        }
+
+        seq->data = std::move(arr);
         return seq;
     }
 
@@ -57,44 +80,59 @@ protected:
         if (index >= seq->GetLength()) {
             throw IndexOutOfRangeException(index, seq->GetLength());
         }
-        seq->data->Set(index, value);
+        seq->data.Set(index, value);
         return seq;
     }
 
     Sequence<T>* ConcatDefault(Sequence<T>* list, ArraySequence<T>* seq) {
-        auto arr = static_cast<ArraySequence<T>*>(list); 
-        DynamicArray<T>* res = seq->data->Concat(arr->data);
-        Sequence<T>* result = new ArraySequence<T>(*res);
-        delete res;
-        return result;
+        if (!list || !seq) {
+            throw InvalidInputException("Передан нулевой указатель");
+        }
+
+        DynamicArray<T> res(seq->data);
+
+        size_t size = res.GetSize();
+        res.Resize(size + list->GetLength());
+
+        size_t i = size;
+
+        for (const auto& el : *list) {
+            res.Set(i++, el);
+        }
+
+        return new ArraySequence<T>(res);
     }
+
 public:
-    ArraySequence() : data(new DynamicArray<T>()) {};
-    ArraySequence(T* items, size_t count) : data(new DynamicArray<T>(items, count)) {};
-    ArraySequence(const DynamicArray<T>& list) : data(new DynamicArray<T>(list)) {}
-    ~ArraySequence() override {
-        delete data;
+    ArraySequence() = default;
+    ArraySequence(T* items, size_t count) : data(items, count) {}
+    ArraySequence(const DynamicArray<T>& list) : data(list) {}
+
+    T& operator[](size_t index) {
+        return data[index];
+    }
+
+    const T& operator[](size_t index) const {
+        return data[index];
     }
 
     T GetFirst() override {
-        return data->Get(0);
+        return data.Get(0);
     }
 
     T GetLast() override {
-        return data->Get(data->GetSize()-1);
+        return data.Get(data.GetSize()-1);
     }
 
     T Get(size_t index) override {
-        return data->Get(index);
+        return data.Get(index);
     }
     Sequence<T>* GetSubsequence(size_t startIndex, size_t endIndex) override {
-        DynamicArray<T>* sub = data->SubArray(startIndex, endIndex);
-        Sequence<T>* seq = new ArraySequence<T>(*sub);
-        delete sub;
-        return seq;
+        DynamicArray<T> sub = data.SubArray(startIndex, endIndex);
+        return new ArraySequence<T>(sub);
     }  
     size_t GetLength() override {
-        return data->GetSize();
+        return data.GetSize();
     }
 
     Sequence<T>* Append(T item) override {
@@ -125,47 +163,45 @@ public:
         return new ArraySequence<T>();
     }
 
-    auto begin() const { 
-        return data->begin();
+    SequenceIterator<T> begin() override {
+        return data.begin();
     }
-    auto end() const { 
-        return data->end(); 
+
+    SequenceIterator<T> end() override {
+        return data.end();
     }
 
     template<typename T2>
     Sequence<T2>* Map(T2 (*func)(T)) {
-        size_t len = GetLength();
-        T2* t2 = new T2[len];
-        size_t i = 0;
+        auto* result = new ArraySequence<T2>();
+
         for (const auto& val : *this) {
-            t2[i++] = func(val);
+            result->Append(func(val));
         }
-        Sequence<T2>* seq = new ArraySequence<T2>(t2, len);
-        delete[] t2;
-        return seq;
+
+        return result;
     }
 
     Sequence<T>* Where(bool (*predicate)(T)) {
-        T* t = new T[GetLength()];
-        size_t count = 0;
-        for (const auto& val : *this) {
-            if (predicate(val)) {
-                t[count++] = val;
-            }
-        }
-        Sequence<T>* seq = new ArraySequence<T>(t, count);
-        delete[] t;
-        return seq;
-    }
+        auto* result = new ArraySequence<T>();
 
+        for (const auto& val : *this) {
+            if (predicate(val))
+                result->Append(val);
+        }
+
+        return result;
+    }
+    
     template<typename T2>
     Sequence<T2>* Reduce(T2 (*func)(T2, T), T2 t2) {
         T2 t = t2;
         for (const auto& val : *this) {
             t = func(t, val);
         }
-        T2 arr[1] = { t };
-        return new ArraySequence<T2>(arr, 1);
+        auto* result = new ArraySequence<T2>();
+        result->Append(t);
+        return result;
     }
     template<typename T, bool IsPointer>
     struct StringConverter {
@@ -239,7 +275,7 @@ template<typename T>
 class ImmutableArraySequence : public ArraySequence<T> {
     protected:
     virtual ArraySequence<T>* Clone() override {
-        return new ImmutableArraySequence<T>(*this->data);
+        return new ImmutableArraySequence<T>(this->data);
     }
 
     ArraySequence<T>* Instance() override {

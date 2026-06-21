@@ -6,6 +6,7 @@
 #include <sstream>
 #include <format>
 #include "exceptions.hpp"
+#include "sequence_iterator.hpp"
 
 namespace myLib {
 template<typename T>
@@ -86,18 +87,16 @@ public:
     }
 
     Sequence<T>* Concat(Sequence<T>* list) override {
-        if (list->GetLength() == 0) {
-            return new ListSequence<T>(*data);
+        if (!list) {
+            throw InvalidInputException("Передан нулевой указатель");
         }
         
-        LinkedList<T>* curr = new LinkedList<T>(*data);
-        auto other = static_cast<ListSequence<T>*>(list);
-        for (const auto& el : *other) {
-            curr->Append(el);
+        ListSequence<T>* res = new ListSequence<T>(*this->data);
+        
+        for (const auto& el : *list) {
+            res->Append(el);
         }
         
-        Sequence<T>* res = new ListSequence<T>(*curr);
-        delete curr;
         return res;
     }
 
@@ -105,11 +104,12 @@ public:
         return new ListSequence<T>();
     }
 
-    auto begin() const { 
+    SequenceIterator<T> begin() override {
         return data->begin();
     }
-    auto end() const { 
-        return data->end(); 
+
+    SequenceIterator<T> end() override {
+        return data->end();
     }
 
     template<typename T2>
