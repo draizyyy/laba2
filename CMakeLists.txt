@@ -22,9 +22,8 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(laba2_tests tests/tests.cpp)
-target_include_directories(laba2_tests PRIVATE include)
-target_link_libraries(laba2_tests PRIVATE gtest_main)
+enable_testing()
+add_subdirectory(tests)
 
 add_executable(laba2_gui WIN32
     src/main.cpp             

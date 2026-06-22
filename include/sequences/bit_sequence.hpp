@@ -6,6 +6,7 @@
 #include <string>
 #include "exceptions.hpp"
 #include "sequence_iterator.hpp"
+#include "array_sequence.hpp"
 
 namespace myLib {
 
@@ -234,32 +235,54 @@ public:
             return new BitSequence<T>();
         }
         
-        DynamicArray<Bit<T>>* sub = data->SubArray(startIndex, endIndex + 1);
-        Sequence<Bit<T>>* res = new BitSequence<T>(*sub);
-        delete sub;
+        DynamicArray<Bit<T>> sub = data->SubArray(startIndex, endIndex + 1);
+        Sequence<Bit<T>>* res = new BitSequence<T>(sub);
+        
         return res;
     }
     
     Sequence<Bit<T>>* Append(Bit<T> item) override {
-        data->InsertAt(item, data->GetSize());
+        InsertAt(item, data->GetSize());
         return this;
     }
     
     Sequence<Bit<T>>* Prepend(Bit<T> item) override {
-        data->InsertAt(item, 0);
+        InsertAt(item, 0);
         return this;
     }
     
     Sequence<Bit<T>>* InsertAt(Bit<T> item, size_t index) override {
-        data->InsertAt(item, index);
+        size_t currentSize = data->GetSize();
+        if (index > currentSize) {
+            throw IndexOutOfRangeException(index, currentSize);
+        }
+
+        data->Resize(currentSize + 1);
+
+        for (size_t i = currentSize; i > index; i--) {
+            data->Set(i, data->Get(i - 1));
+        }
+
+        data->Set(index, item);
         return this;
     }
 
     Sequence<Bit<T>>* DeleteAt(size_t index) override {
-        if (index >= data->GetSize()) {
-            throw IndexOutOfRangeException(index, data->GetSize());
+        size_t currentSize = data->GetSize();
+        if (index >= currentSize) {
+            throw IndexOutOfRangeException(index, currentSize);
         }
-        data->DeleteAt(index);
+
+        if (currentSize == 1) {
+            data->Resize(0);
+            return this;
+        }
+
+        for (size_t i = index; i < currentSize - 1; i++) {
+            data->Set(i, data->Get(i + 1));
+        }
+
+        data->Resize(currentSize - 1);
         return this;
     }
 
@@ -283,12 +306,12 @@ public:
         return new BitSequence<T>();
     }
     
-    SequenceIterator<T> begin() override {
-        return data->begin();
+    SequenceIterator<Bit<T>> begin() override {
+        return SequenceIterator<Bit<T>>(data->begin());
     }
 
-    SequenceIterator<T> end() override {
-        return data->end();
+    SequenceIterator<Bit<T>> end() override {
+        return SequenceIterator<Bit<T>>(data->end());
     }
     
     template <typename T2>
