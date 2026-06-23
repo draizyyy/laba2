@@ -96,7 +96,7 @@ public:
         }
     }
 
-    Option& operator=(Option&& other) noexcept {
+    Option& operator=(Option&& other) {
         if (this != &other) {
             if (hasValue) {
                 ptr()->~T();
