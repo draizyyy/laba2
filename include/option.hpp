@@ -93,8 +93,6 @@ public:
     Option(Option&& other) : hasValue(other.hasValue) {
         if (hasValue) {
             new (ptr()) T(std::move(*other.ptr()));
-            other.ptr()->~T();
-            other.hasValue = false;
         }
     }
 
@@ -108,8 +106,6 @@ public:
             
             if (hasValue) {
                 new (ptr()) T(std::move(*other.ptr()));
-                other.ptr()->~T();
-                other.hasValue = false;
             }
         }
         return *this;
@@ -152,9 +148,9 @@ public:
 
     template <typename F>
     auto and_then(F&& f) && {
+        using ReturnType = decltype(std::forward<F>(f)(std::move(*ptr())));
         if (!hasValue) {
-            using ReturnType = decltype(std::forward<F>(f)(std::move(*ptr())));
-            return ReturnType();
+            return ReturnType(nullopt);
         }
         return std::forward<F>(f)(std::move(*ptr()));
     }
